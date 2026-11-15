@@ -40,16 +40,12 @@ def test_speed_stays_close_to_the_requested_range() -> None:
 
 
 def test_ship_without_maneuver_keeps_a_nearly_constant_heading() -> None:
-    drifts = [
-        abs(_track(seed, 0.0)[1][-1] - _track(seed, 0.0)[1][0]) for seed in range(20)
-    ]
+    drifts = [abs(_track(seed, 0.0)[1][-1] - _track(seed, 0.0)[1][0]) for seed in range(20)]
     assert max(drifts) < np.deg2rad(30)  # only small steering jitter
 
 
 def test_maneuvering_ships_really_turn() -> None:
-    changes = [
-        abs(_track(seed, 1.0)[1][-1] - _track(seed, 1.0)[1][0]) for seed in range(20)
-    ]
+    changes = [abs(_track(seed, 1.0)[1][-1] - _track(seed, 1.0)[1][0]) for seed in range(20)]
     # 3-7 steps at 4-6 deg/min over 2 min = at least 24 degrees of heading change.
     assert np.median(changes) > np.deg2rad(20)
 
@@ -71,9 +67,7 @@ def test_fleet_avoids_land() -> None:
     land = np.zeros((256, 256), dtype=np.float32)
     land[:, :128] = 1.0  # the whole left half is land
     rng = np.random.default_rng(4)
-    positions, _ = sample_fleet(
-        rng, 256, 4, 16, maneuver_probability=0.4, land_mask=land, **KWARGS
-    )
+    positions, _ = sample_fleet(rng, 256, 4, 16, maneuver_probability=0.4, land_mask=land, **KWARGS)
     assert len(positions) > 0
     assert positions[:, :, 0].min() >= 128
 

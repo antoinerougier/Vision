@@ -34,9 +34,7 @@ def test_same_seed_gives_same_result(kind: str, clean_image: np.ndarray) -> None
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_degradation_actually_changes_the_image(
-    kind: str, clean_image: np.ndarray
-) -> None:
+def test_degradation_actually_changes_the_image(kind: str, clean_image: np.ndarray) -> None:
     out = degrade(clean_image, np.random.default_rng(5), kind=kind, severity=1.0)
     assert psnr(clean_image, out) < 25.0  # clearly different from the clean image
 

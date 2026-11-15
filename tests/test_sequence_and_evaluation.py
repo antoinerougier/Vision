@@ -92,8 +92,7 @@ def test_baselines_are_exact_on_a_noiseless_straight_line() -> None:
     snap = snapshots[6][0]
     t = scenario.times[6]
     exact = [
-        (t - 2.0 * k, 10.0 + 1.0 * (t - 2.0 * k), 20.0 + 0.5 * (t - 2.0 * k))
-        for k in (2, 1, 0)
+        (t - 2.0 * k, 10.0 + 1.0 * (t - 2.0 * k), 20.0 + 0.5 * (t - 2.0 * k)) for k in (2, 1, 0)
     ]
     snap = TrackSnapshot(**{**snap.__dict__, "last_measurements": exact})
     horizons = [2.0, 4.0, 6.0, 8.0, 10.0]
@@ -106,9 +105,7 @@ def test_baselines_are_exact_on_a_noiseless_straight_line() -> None:
 
 def test_oracle_detections_give_complete_accurate_tracks() -> None:
     scenario, detections, snapshots = oracle_run(3)
-    score = _score_scenario(
-        scenario, detections, snapshots, horizons_for(2.0, 10.0), 8.0
-    )
+    score = _score_scenario(scenario, detections, snapshots, horizons_for(2.0, 10.0), 8.0)
     metrics = _aggregate([score])
     assert metrics["tracking"]["completeness"] > 0.95
     assert metrics["tracking"]["false_tracks_per_frame"] == 0.0

@@ -44,9 +44,7 @@ def png_bytes(image: np.ndarray) -> bytes:
 
 
 @pytest.mark.parametrize("shape", [(64, 64), (101, 77), (33, 130)])
-def test_restore_preserves_any_image_size(
-    pipeline: OnnxPipeline, shape: tuple[int, int]
-) -> None:
+def test_restore_preserves_any_image_size(pipeline: OnnxPipeline, shape: tuple[int, int]) -> None:
     """Sizes that are not multiples of 8 must work (padding + cropping)."""
     image = np.random.default_rng(0).random(shape).astype(np.float32)
     restored = pipeline.restore(image)
@@ -101,21 +99,15 @@ def test_detect_endpoint_returns_expected_json(client) -> None:
 
 def test_detect_without_restoration(client) -> None:
     image = np.full((64, 64), 128, dtype=np.uint8)
-    response = client.post(
-        "/detect?restore=false", files={"file": ("x.png", png_bytes(image))}
-    )
+    response = client.post("/detect?restore=false", files={"file": ("x.png", png_bytes(image))})
     assert response.status_code == 200 and response.json()["restored"] is False
 
 
 def test_preprocess_returns_a_png_of_the_same_size(client) -> None:
     image = (np.random.default_rng(0).random((70, 90)) * 255).astype(np.uint8)
     response = client.post("/preprocess", files={"file": ("x.png", png_bytes(image))})
-    assert (
-        response.status_code == 200 and response.headers["content-type"] == "image/png"
-    )
-    decoded = cv2.imdecode(
-        np.frombuffer(response.content, np.uint8), cv2.IMREAD_GRAYSCALE
-    )
+    assert response.status_code == 200 and response.headers["content-type"] == "image/png"
+    decoded = cv2.imdecode(np.frombuffer(response.content, np.uint8), cv2.IMREAD_GRAYSCALE)
     assert decoded.shape == (70, 90)
 
 
@@ -133,9 +125,7 @@ def test_colour_images_are_converted_to_grayscale(client) -> None:
 
 
 def test_garbage_upload_is_rejected_with_422(client) -> None:
-    response = client.post(
-        "/detect", files={"file": ("x.png", b"this is not an image")}
-    )
+    response = client.post("/detect", files={"file": ("x.png", b"this is not an image")})
     assert response.status_code == 422
 
 
@@ -148,7 +138,5 @@ def test_oversized_upload_is_rejected_with_413(client) -> None:
 
 def test_invalid_score_threshold_is_rejected(client) -> None:
     image = np.zeros((32, 32), dtype=np.uint8)
-    response = client.post(
-        "/detect?score_threshold=2", files={"file": ("x.png", png_bytes(image))}
-    )
+    response = client.post("/detect?score_threshold=2", files={"file": ("x.png", png_bytes(image))})
     assert response.status_code == 422

@@ -1,7 +1,7 @@
 {
   "clean_ap": 0.9992505995203838,
   "clean_ap_augmented_detector": 0.994317457596082,
-  "latency_ms_per_image": 14.16027422500008,
+  "latency_ms_per_image": 4.804422500455985,
   "meta": {
     "data_source": "synthetic",
     "image_size": 128,
@@ -27,10 +27,10 @@
         "ap_gain": 0.858235589938167,
         "ap_restored": 0.971939047719881,
         "psnr_degraded": 8.406187188501306,
-        "psnr_gain_db": 15.586506511432233,
-        "psnr_restored": 23.99269369993354,
-        "ssim_degraded": 0.5383136707514822,
-        "ssim_restored": 0.7904293166756489
+        "psnr_gain_db": 15.58650651498074,
+        "psnr_restored": 23.992693703482047,
+        "ssim_degraded": 0.5383136707514823,
+        "ssim_restored": 0.7904293172493252
       },
       "1.0": {
         "ap_augmented_detector": 0.9932150153663474,
@@ -39,10 +39,10 @@
         "ap_gain": 0.5853599259090934,
         "ap_restored": 0.5853599259090934,
         "psnr_degraded": 6.038570252058098,
-        "psnr_gain_db": 16.178618328983323,
-        "psnr_restored": 22.21718858104142,
+        "psnr_gain_db": 16.1786183276841,
+        "psnr_restored": 22.217188579742196,
         "ssim_degraded": 0.42250359651171493,
-        "ssim_restored": 0.7001790666329893
+        "ssim_restored": 0.7001790658767975
       },
       "1.3": {
         "ap_augmented_detector": 0.993844941342467,
@@ -51,10 +51,10 @@
         "ap_gain": 0.17438753591703723,
         "ap_restored": 0.17438753591703723,
         "psnr_degraded": 5.3950769792559505,
-        "psnr_gain_db": 16.1248398320731,
-        "psnr_restored": 21.51991681132905,
-        "ssim_degraded": 0.3879447172666283,
-        "ssim_restored": 0.6599234027731526
+        "psnr_gain_db": 16.124839831680823,
+        "psnr_restored": 21.519916810936774,
+        "ssim_degraded": 0.38794471726662827,
+        "ssim_restored": 0.6599234045137666
       }
     },
     "low_light": {
@@ -65,10 +65,10 @@
         "ap_gain": 0.2282345994392655,
         "ap_restored": 0.9680086878167569,
         "psnr_degraded": 18.627577450330776,
-        "psnr_gain_db": 7.145531494662535,
-        "psnr_restored": 25.77310894499331,
-        "ssim_degraded": 0.32961521253572745,
-        "ssim_restored": 0.7049085778229396
+        "psnr_gain_db": 7.145531506446176,
+        "psnr_restored": 25.77310895677695,
+        "ssim_degraded": 0.3296152125357276,
+        "ssim_restored": 0.7049085788486076
       },
       "1.0": {
         "ap_augmented_detector": 0.9858225957790088,
@@ -77,10 +77,10 @@
         "ap_gain": 0.710964168567815,
         "ap_restored": 0.7133680147216611,
         "psnr_degraded": 13.465152763119168,
-        "psnr_gain_db": 7.4470837114250195,
-        "psnr_restored": 20.912236474544187,
-        "ssim_degraded": 0.1518033213700685,
-        "ssim_restored": 0.5488889852890096
+        "psnr_gain_db": 7.447083721902754,
+        "psnr_restored": 20.91223648502192,
+        "ssim_degraded": 0.15180332137006855,
+        "ssim_restored": 0.5488889910684837
       },
       "1.3": {
         "ap_augmented_detector": 0.8701968821279659,
@@ -89,10 +89,10 @@
         "ap_gain": 0.0634665885690808,
         "ap_restored": 0.0634665885690808,
         "psnr_degraded": 12.904695903851175,
-        "psnr_gain_db": 5.478092236939945,
-        "psnr_restored": 18.38278814079112,
-        "ssim_degraded": 0.10615004274935892,
-        "ssim_restored": 0.47597090769297457
+        "psnr_gain_db": 5.478092275996241,
+        "psnr_restored": 18.382788179847417,
+        "ssim_degraded": 0.10615004274935894,
+        "ssim_restored": 0.4759709132084376
       }
     },
     "sar_speckle": {
@@ -103,10 +103,10 @@
         "ap_gain": 0.41244068445130244,
         "ap_restored": 0.9295295531290277,
         "psnr_degraded": 16.908934236783747,
-        "psnr_gain_db": 11.06166720482516,
-        "psnr_restored": 27.970601441608906,
+        "psnr_gain_db": 11.061667219662858,
+        "psnr_restored": 27.970601456446605,
         "ssim_degraded": 0.11745453722421008,
-        "ssim_restored": 0.6232625789632669
+        "ssim_restored": 0.6232625789845094
       },
       "1.0": {
         "ap_augmented_detector": 0.9444424348696712,
@@ -115,10 +115,10 @@
         "ap_gain": 0.742250879418278,
         "ap_restored": 0.8248109164719126,
         "psnr_degraded": 13.195886359471032,
-        "psnr_gain_db": 12.084396699840273,
-        "psnr_restored": 25.280283059311305,
+        "psnr_gain_db": 12.084396700522529,
+        "psnr_restored": 25.28028305999356,
         "ssim_degraded": 0.053322582147032414,
-        "ssim_restored": 0.49208028446647795
+        "ssim_restored": 0.49208028461263326
       },
       "1.3": {
         "ap_augmented_detector": 0.8586469540559596,
@@ -127,10 +127,10 @@
         "ap_gain": 0.6430525942884407,
         "ap_restored": 0.677700829891057,
         "psnr_degraded": 12.236369481218016,
-        "psnr_gain_db": 12.10141861810931,
-        "psnr_restored": 24.337788099327327,
+        "psnr_gain_db": 12.101418618928466,
+        "psnr_restored": 24.337788100146483,
         "ssim_degraded": 0.04114918863911419,
-        "ssim_restored": 0.4471449529422006
+        "ssim_restored": 0.44714495338070465
       }
     },
     "thermal": {
@@ -141,10 +141,10 @@
         "ap_gain": 0.19923838921748016,
         "ap_restored": 0.7440904191716259,
         "psnr_degraded": 18.493202426068784,
-        "psnr_gain_db": 9.684162935686558,
-        "psnr_restored": 28.177365361755342,
-        "ssim_degraded": 0.2999400843311307,
-        "ssim_restored": 0.692523835013305
+        "psnr_gain_db": 9.684162922584171,
+        "psnr_restored": 28.177365348652955,
+        "ssim_degraded": 0.29994008433113073,
+        "ssim_restored": 0.6925238347237729
       },
       "1.0": {
         "ap_augmented_detector": 0.9621074531768465,
@@ -153,10 +153,10 @@
         "ap_gain": -0.05366347938886848,
         "ap_restored": 0.06668488931105265,
         "psnr_degraded": 15.755139835832557,
-        "psnr_gain_db": 10.174365143502959,
-        "psnr_restored": 25.929504979335515,
+        "psnr_gain_db": 10.174365154821652,
+        "psnr_restored": 25.92950499065421,
         "ssim_degraded": 0.16815584156499533,
-        "ssim_restored": 0.6248995699196156
+        "ssim_restored": 0.6248995720360608
       },
       "1.3": {
         "ap_augmented_detector": 0.8401084885148951,
@@ -165,10 +165,10 @@
         "ap_gain": -0.020438596929159378,
         "ap_restored": 0.008513621794871794,
         "psnr_degraded": 14.788120114649628,
-        "psnr_gain_db": 9.533999678154332,
-        "psnr_restored": 24.32211979280396,
+        "psnr_gain_db": 9.533999684181355,
+        "psnr_restored": 24.322119798830983,
         "ssim_degraded": 0.1254329940355477,
-        "ssim_restored": 0.5682335971427179
+        "ssim_restored": 0.5682335995157025
       }
     }
   },
@@ -179,7 +179,7 @@
       "mean_ap_degraded": 0.4788546111977691,
       "mean_ap_gain": 0.42453731576155374,
       "mean_ap_restored": 0.9033919269593228,
-      "mean_psnr_gain_db": 10.86946703665162
+      "mean_psnr_gain_db": 10.869467040918487
     },
     "1.0": {
       "mean_ap_augmented_detector": 0.9713968747979684,
@@ -187,7 +187,7 @@
       "mean_ap_degraded": 0.051328062976850455,
       "mean_ap_gain": 0.4962278736265795,
       "mean_ap_restored": 0.5475559366034299,
-      "mean_psnr_gain_db": 11.471115970937893
+      "mean_psnr_gain_db": 11.471115976232758
     },
     "1.3": {
       "mean_ap_augmented_detector": 0.8906993165103219,
@@ -195,7 +195,7 @@
       "mean_ap_degraded": 0.015900113581661844,
       "mean_ap_gain": 0.21511703046134986,
       "mean_ap_restored": 0.2310171440430117,
-      "mean_psnr_gain_db": 10.809587591319172
+      "mean_psnr_gain_db": 10.809587602696721
     }
   }
 }

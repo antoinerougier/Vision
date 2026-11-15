@@ -60,16 +60,12 @@ def export_model(
     (actual,) = session.run(None, {"image": probe.numpy()})
     error = float(np.max(np.abs(expected - actual)))
     if error > tolerance:
-        raise RuntimeError(
-            f"ONNX parity check FAILED for {path.name}: max abs error {error:.2e}"
-        )
+        raise RuntimeError(f"ONNX parity check FAILED for {path.name}: max abs error {error:.2e}")
     print(f"Exported {path} (max abs error vs PyTorch: {error:.2e})")
     return error
 
 
-def load_checkpoint(
-    path: str | Path, model_cls: type[torch.nn.Module]
-) -> torch.nn.Module:
+def load_checkpoint(path: str | Path, model_cls: type[torch.nn.Module]) -> torch.nn.Module:
     """Rebuild a model from a checkpoint written by the training scripts."""
     checkpoint = torch.load(path, map_location="cpu", weights_only=True)
     model = model_cls(checkpoint["base_channels"])

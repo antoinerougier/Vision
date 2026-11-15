@@ -39,17 +39,11 @@ def parse_voc_xml(
         bndbox = obj.find("bndbox")
         if bndbox is None:
             continue
-        boxes.append(
-            tuple(
-                float(bndbox.findtext(tag)) for tag in ("xmin", "ymin", "xmax", "ymax")
-            )
-        )
+        boxes.append(tuple(float(bndbox.findtext(tag)) for tag in ("xmin", "ymin", "xmax", "ymax")))
     return width, height, boxes
 
 
-def to_yolo_line(
-    box: tuple[float, float, float, float], width: int, height: int
-) -> str:
+def to_yolo_line(box: tuple[float, float, float, float], width: int, height: int) -> str:
     """Format one absolute box as a normalised YOLO label line (class 0)."""
     x_min, y_min, x_max, y_max = box
     cx, cy = (x_min + x_max) / 2 / width, (y_min + y_max) / 2 / height
@@ -57,19 +51,13 @@ def to_yolo_line(
     return f"0 {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}"
 
 
-def convert(
-    images: Path, annotations: Path, out: Path, val_fraction: float, seed: int
-) -> None:
-    stems = sorted(
-        p.stem for p in images.iterdir() if p.suffix.lower() in IMAGE_SUFFIXES
-    )
+def convert(images: Path, annotations: Path, out: Path, val_fraction: float, seed: int) -> None:
+    stems = sorted(p.stem for p in images.iterdir() if p.suffix.lower() in IMAGE_SUFFIXES)
     random.Random(seed).shuffle(stems)  # seeded shuffle: the split is reproducible
     n_val = int(len(stems) * val_fraction)
     splits = {"val": stems[:n_val], "train": stems[n_val:]}
 
-    image_by_stem = {
-        p.stem: p for p in images.iterdir() if p.suffix.lower() in IMAGE_SUFFIXES
-    }
+    image_by_stem = {p.stem: p for p in images.iterdir() if p.suffix.lower() in IMAGE_SUFFIXES}
     for split, split_stems in splits.items():
         (out / "images" / split).mkdir(parents=True, exist_ok=True)
         (out / "labels" / split).mkdir(parents=True, exist_ok=True)
@@ -79,13 +67,9 @@ def convert(
                 continue
             width, height, boxes = parse_voc_xml(xml_path)
             lines = [to_yolo_line(b, width, height) for b in boxes]
-            shutil.copy2(
-                image_by_stem[stem], out / "images" / split / image_by_stem[stem].name
-            )
+            shutil.copy2(image_by_stem[stem], out / "images" / split / image_by_stem[stem].name)
             (out / "labels" / split / f"{stem}.txt").write_text("\n".join(lines) + "\n")
-    print(
-        f"Converted {len(stems)} images -> {out} ({n_val} val / {len(stems) - n_val} train)"
-    )
+    print(f"Converted {len(stems)} images -> {out} ({n_val} val / {len(stems) - n_val} train)")
 
 
 def main() -> None:
