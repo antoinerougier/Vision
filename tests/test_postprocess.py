@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from isr_restore.postprocess import STRIDE, decode, encode_targets
+from isr.postprocess import STRIDE, decode, encode_targets
 
 
 def perfect_output(boxes: np.ndarray, size: int) -> np.ndarray:
@@ -23,7 +23,9 @@ def test_encode_decode_roundtrip() -> None:
     boxes = np.array([[10, 12, 30, 22], [70, 80, 85, 100]], dtype=np.float32)
     detections = decode(perfect_output(boxes, 128), score_threshold=0.5)
     assert detections.shape == (2, 5)
-    np.testing.assert_allclose(sort_boxes(detections[:, :4]), sort_boxes(boxes), atol=0.01)
+    np.testing.assert_allclose(
+        sort_boxes(detections[:, :4]), sort_boxes(boxes), atol=0.01
+    )
 
 
 def test_encoded_targets_have_expected_structure() -> None:

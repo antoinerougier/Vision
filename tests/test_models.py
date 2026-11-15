@@ -6,9 +6,9 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from isr_restore.data import SyntheticDetectionDataset  # noqa: E402
-from isr_restore.models import DetectorNet, RestorationNet, count_parameters  # noqa: E402
-from isr_restore.train_detector import detection_loss, focal_loss  # noqa: E402
+from isr.data import SyntheticDetectionDataset  # noqa: E402
+from isr.models import DetectorNet, RestorationNet, count_parameters  # noqa: E402
+from isr.train_detector import detection_loss, focal_loss  # noqa: E402
 
 
 def test_restoration_net_is_identity_at_initialisation() -> None:

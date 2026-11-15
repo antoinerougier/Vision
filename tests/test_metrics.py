@@ -5,14 +5,16 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from isr_restore.metrics import average_precision, box_iou, psnr, ssim
+from isr.metrics import average_precision, box_iou, psnr, ssim
 
 GT = [np.array([[10, 10, 30, 30]], dtype=np.float32)]
 
 
 def test_iou_known_values() -> None:
     box = np.array([0, 0, 10, 10], dtype=np.float32)
-    others = np.array([[0, 0, 10, 10], [5, 0, 15, 10], [20, 20, 30, 30]], dtype=np.float32)
+    others = np.array(
+        [[0, 0, 10, 10], [5, 0, 15, 10], [20, 20, 30, 30]], dtype=np.float32
+    )
     np.testing.assert_allclose(box_iou(box, others), [1.0, 1 / 3, 0.0], atol=1e-6)
 
 
@@ -32,8 +34,12 @@ def test_only_false_positives_gives_ap_zero() -> None:
 
 def test_ranking_matters() -> None:
     """A wrong high-score box ranked above the right one halves the precision at recall 1."""
-    wrong_first = [np.array([[60, 60, 80, 80, 0.9], [10, 10, 30, 30, 0.5]], dtype=np.float32)]
-    right_first = [np.array([[60, 60, 80, 80, 0.5], [10, 10, 30, 30, 0.9]], dtype=np.float32)]
+    wrong_first = [
+        np.array([[60, 60, 80, 80, 0.9], [10, 10, 30, 30, 0.5]], dtype=np.float32)
+    ]
+    right_first = [
+        np.array([[60, 60, 80, 80, 0.5], [10, 10, 30, 30, 0.9]], dtype=np.float32)
+    ]
     assert average_precision(wrong_first, GT) == pytest.approx(0.5)
     assert average_precision(right_first, GT) == pytest.approx(1.0)
 
@@ -54,7 +60,10 @@ def test_iou_threshold_is_respected() -> None:
 
 
 def test_no_ground_truth_gives_zero() -> None:
-    assert average_precision([np.zeros((0, 5), dtype=np.float32)], [np.zeros((0, 4))]) == 0.0
+    assert (
+        average_precision([np.zeros((0, 5), dtype=np.float32)], [np.zeros((0, 4))])
+        == 0.0
+    )
 
 
 def test_psnr_known_values() -> None:

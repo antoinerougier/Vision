@@ -21,8 +21,8 @@ def tiny_model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """A folder with untrained restoration.onnx and detector.onnx."""
     pytest.importorskip("torch")
     pytest.importorskip("onnxruntime")
-    from isr_restore.export import export_model
-    from isr_restore.models import DetectorNet, RestorationNet
+    from isr.export import export_model
+    from isr.models import DetectorNet, RestorationNet
 
     model_dir = tmp_path_factory.mktemp("models")
     export_model(RestorationNet(8), model_dir / "restoration.onnx", 17, 1e-4, 64)

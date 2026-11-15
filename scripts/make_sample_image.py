@@ -13,8 +13,8 @@ import argparse
 import cv2
 import numpy as np
 
-from isr_restore.degradations import KINDS, degrade
-from isr_restore.synthetic import render_scene
+from isr.degradations import KINDS, degrade
+from isr.synthetic import render_scene
 
 
 def main() -> None:
@@ -30,7 +30,9 @@ def main() -> None:
     clean, boxes = render_scene(rng, args.size)
     degraded = degrade(clean, rng, args.kind, args.severity)
     cv2.imwrite(args.out, (degraded * 255).astype(np.uint8))
-    print(f"Wrote {args.out}: {args.kind} at severity {args.severity}, {len(boxes)} ship(s)")
+    print(
+        f"Wrote {args.out}: {args.kind} at severity {args.severity}, {len(boxes)} ship(s)"
+    )
 
 
 if __name__ == "__main__":

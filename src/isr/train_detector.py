@@ -1,7 +1,7 @@
 """Train the CenterNet-style detector on CLEAN images.
 
 Usage:
-    python -m isr_restore.train_detector --config configs/default.yaml
+    python -m isr.train_detector --config configs/default.yaml
 
 The detector plays the role of "the customer's existing model": it is trained under
 clean, laboratory-like conditions only and never sees degraded images, nor the
@@ -36,17 +36,23 @@ def focal_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     negative_weight = torch.pow(1 - target, 4)
 
     positive_loss = -torch.log(prob) * torch.pow(1 - prob, 2) * positive
-    negative_loss = -torch.log(1 - prob) * torch.pow(prob, 2) * negative_weight * (1 - positive)
+    negative_loss = (
+        -torch.log(1 - prob) * torch.pow(prob, 2) * negative_weight * (1 - positive)
+    )
     n_positive = positive.sum().clamp(min=1.0)
     return (positive_loss.sum() + negative_loss.sum()) / n_positive
 
 
-def detection_loss(output: torch.Tensor, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+def detection_loss(
+    output: torch.Tensor, batch: dict[str, torch.Tensor]
+) -> torch.Tensor:
     """Heatmap focal loss + L1 on box size and centre offset (only at object centres)."""
     heat_loss = focal_loss(output[:, 0:1], batch["heat"])
     mask = batch["mask"]
     n_objects = mask.sum().clamp(min=1.0)
-    size_loss = (F.l1_loss(output[:, 1:3], batch["wh"], reduction="none") * mask).sum() / n_objects
+    size_loss = (
+        F.l1_loss(output[:, 1:3], batch["wh"], reduction="none") * mask
+    ).sum() / n_objects
     offset_loss = (
         F.l1_loss(output[:, 3:5], batch["offset"], reduction="none") * mask
     ).sum() / n_objects
@@ -56,7 +62,9 @@ def detection_loss(output: torch.Tensor, batch: dict[str, torch.Tensor]) -> torc
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/default.yaml")
-    parser.add_argument("--steps", type=int, default=None, help="override config (smoke tests)")
+    parser.add_argument(
+        "--steps", type=int, default=None, help="override config (smoke tests)"
+    )
     parser.add_argument(
         "--augmented",
         action="store_true",
@@ -68,8 +76,12 @@ def main() -> None:
     config = load_config(args.config)
     cfg = config["detector"]
     steps = args.steps or cfg["steps"]
-    degrade_probability = cfg["augmented_degrade_probability"] if args.augmented else 0.0
-    checkpoint_path = cfg["augmented_checkpoint"] if args.augmented else cfg["checkpoint"]
+    degrade_probability = (
+        cfg["augmented_degrade_probability"] if args.augmented else 0.0
+    )
+    checkpoint_path = (
+        cfg["augmented_checkpoint"] if args.augmented else cfg["checkpoint"]
+    )
     set_seed(config["seed"])
     torch.set_num_threads(max(1, torch.get_num_threads()))
 
@@ -84,7 +96,9 @@ def main() -> None:
             seed=cfg["train_seed"],
             degrade_probability=degrade_probability,
         )
-    loader = DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=True, drop_last=True)
+    loader = DataLoader(
+        dataset, batch_size=cfg["batch_size"], shuffle=True, drop_last=True
+    )
 
     model = DetectorNet(cfg["base_channels"])
     print(f"DetectorNet: {count_parameters(model):,} parameters")
@@ -117,7 +131,8 @@ def main() -> None:
     checkpoint = Path(checkpoint_path)
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
-        {"state_dict": model.state_dict(), "base_channels": cfg["base_channels"]}, checkpoint
+        {"state_dict": model.state_dict(), "base_channels": cfg["base_channels"]},
+        checkpoint,
     )
     print(f"Saved {checkpoint}")
 

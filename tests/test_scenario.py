@@ -5,10 +5,12 @@ from __future__ import annotations
 import numpy as np
 
 from conftest import REPO_ROOT  # noqa: E402
-from isr_restore.common import load_config
-from isr_restore.scenario import ScenarioConfig, build_scenario
+from isr.common import load_config
+from isr.scenario import ScenarioConfig, build_scenario
 
-SMALL = ScenarioConfig(size=128, n_frames=8, n_ships=(2, 3), speed_px_per_min=(0.5, 1.2))
+SMALL = ScenarioConfig(
+    size=128, n_frames=8, n_ships=(2, 3), speed_px_per_min=(0.5, 1.2)
+)
 
 
 def test_shapes_ranges_and_time_axis() -> None:
@@ -36,7 +38,9 @@ def test_same_arguments_give_the_same_scenario_and_other_seeds_differ() -> None:
     a = build_scenario(4, SMALL, "thermal", 1.0)
     b = build_scenario(4, SMALL, "thermal", 1.0)
     c = build_scenario(5, SMALL, "thermal", 1.0)
-    assert np.array_equal(a.frames, b.frames) and np.array_equal(a.positions, b.positions)
+    assert np.array_equal(a.frames, b.frames) and np.array_equal(
+        a.positions, b.positions
+    )
     assert not np.array_equal(a.frames, c.frames)
 
 
