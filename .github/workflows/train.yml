@@ -1,0 +1,60 @@
+name: Retrain
+
+# Continuous-training skeleton. Runs on demand (Actions tab -> "Run workflow") and once a
+# month. It retrains both networks from the config, exports them to ONNX, enforces the
+# quality gate and uploads the new models as a build artefact.
+#
+# It deliberately does NOT commit anything: a human reviews the report, downloads the
+# artefact and opens a pull request if the new models are better.
+on:
+  workflow_dispatch:
+    inputs:
+      detector_steps:
+        description: "Detector optimisation steps (blank = value from the config)"
+        required: false
+      restoration_steps:
+        description: "Restoration optimisation steps (blank = value from the config)"
+        required: false
+  schedule:
+    - cron: "0 3 1 * *"   # 03:00 UTC on the first day of each month
+
+permissions:
+  contents: read
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install CPU-only PyTorch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -e ".[train,serve]"
+
+      - name: Train the detector (clean data only)
+        run: |
+          STEPS="${{ github.event.inputs.detector_steps }}"
+          python -m isr_restore.train_detector --config configs/default.yaml ${STEPS:+--steps $STEPS}
+      - name: Train the restoration network
+        run: |
+          STEPS="${{ github.event.inputs.restoration_steps }}"
+          python -m isr_restore.train_restoration --config configs/default.yaml ${STEPS:+--steps $STEPS}
+
+      - name: Export to ONNX (with parity check)
+        run: python -m isr_restore.export --config configs/default.yaml
+      - name: Benchmark and enforce the quality gate
+        run: python -m isr_restore.evaluate --config configs/default.yaml --gate
+
+      - name: Upload the new models and the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrained-models-and-report
+          path: |
+            models/*.onnx
+            reports/
