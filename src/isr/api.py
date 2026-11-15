@@ -57,9 +57,7 @@ def health() -> JSONResponse:
     balancer take an instance that cannot serve out of rotation automatically.
     """
     model_dir = Path(os.environ.get("ISR_MODEL_DIR", "models"))
-    ready = (model_dir / "restoration.onnx").exists() and (
-        model_dir / "detector.onnx"
-    ).exists()
+    ready = (model_dir / "restoration.onnx").exists() and (model_dir / "detector.onnx").exists()
     return JSONResponse(
         status_code=200 if ready else 503,
         content={
@@ -84,17 +82,13 @@ async def preprocess(file: UploadFile = File(...)) -> Response:
 @app.post("/detect")
 async def detect(
     file: UploadFile = File(...),
-    restore: bool = Query(
-        True, description="Run the restoration layer before detection."
-    ),
+    restore: bool = Query(True, description="Run the restoration layer before detection."),
     score_threshold: float = Query(0.3, ge=0.0, le=1.0),
 ) -> dict[str, object]:
     """Detect objects (ships) in an image."""
     image = _decode_upload(await file.read())
     start = time.perf_counter()
-    detections = get_pipeline().detect(
-        image, restore=restore, score_threshold=score_threshold
-    )
+    detections = get_pipeline().detect(image, restore=restore, score_threshold=score_threshold)
     elapsed_ms = (time.perf_counter() - start) * 1000.0
     return {
         "width": int(image.shape[1]),
