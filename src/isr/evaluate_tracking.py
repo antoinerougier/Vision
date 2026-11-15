@@ -26,7 +26,7 @@ Forecast methods compared on exactly the same (ship, frame) samples:
     stationary  the ship stays where it was last seen
 
 Usage:
-    python -m isr_restore.evaluate_tracking --config configs/default.yaml [--gate]
+    python -m isr.evaluate_tracking --config configs/default.yaml [--gate]
 """
 
 from __future__ import annotations
@@ -75,7 +75,9 @@ def _oracle_detections(scenario: Scenario) -> list[np.ndarray]:
     rng = sample_rng(scenario.seed + 31337, 0)
     detections = []
     for t in range(scenario.n_frames):
-        centers = scenario.positions[:, t] + rng.normal(0, ORACLE_NOISE_PX, (scenario.n_ships, 2))
+        centers = scenario.positions[:, t] + rng.normal(
+            0, ORACLE_NOISE_PX, (scenario.n_ships, 2)
+        )
         boxes = np.concatenate(
             [centers - 5.0, centers + 5.0, np.ones((scenario.n_ships, 1))], axis=1
         ).astype(np.float32)
@@ -135,7 +137,9 @@ def _score_scenario(
     }  # fmt: skip
     last_track_of_ship: dict[int, int] = {}
 
-    for t in range(1, T):  # frame 0 is the sharp reference: not part of the degraded benchmark
+    for t in range(
+        1, T
+    ):  # frame 0 is the sharp reference: not part of the degraded benchmark
         gt = scenario.positions[:, t].astype(np.float64)
         out["frames"] += 1
 
@@ -157,7 +161,9 @@ def _score_scenario(
 
         # --- track level ---
         tracks = snapshots[t]
-        track_xy = np.array([[s.x, s.y] for s in tracks]) if tracks else np.zeros((0, 2))
+        track_xy = (
+            np.array([[s.x, s.y] for s in tracks]) if tracks else np.zeros((0, 2))
+        )
         matches = _greedy_match(gt, track_xy, match_distance)
         out["covered"] += len(matches)
         out["gt_total"] += S
@@ -250,10 +256,17 @@ def _aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
             "availability": ratio(total["avail_covered"], total["avail_total"]),
             "n_samples": len(all_inside[0]),
             # Average displacement error over all horizons, and error at the last one.
-            "ade": {m: float(np.mean(by_horizon[m])) if has_samples else None for m in METHODS},
+            "ade": {
+                m: float(np.mean(by_horizon[m])) if has_samples else None
+                for m in METHODS
+            },
             "fde": {m: by_horizon[m][-1] if has_samples else None for m in METHODS},
-            "error_by_horizon": {m: by_horizon[m] if has_samples else None for m in METHODS},
-            "ellipse_coverage_by_horizon": [float(np.mean(x)) if x else None for x in all_inside],
+            "error_by_horizon": {
+                m: by_horizon[m] if has_samples else None for m in METHODS
+            },
+            "ellipse_coverage_by_horizon": [
+                float(np.mean(x)) if x else None for x in all_inside
+            ],
         },
     }
 
@@ -261,7 +274,9 @@ def _aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
 # ------------------------------------------------------------------------- benchmark
 
 
-def run_tracking_benchmark(config: dict[str, Any], model_dir: str | Path) -> dict[str, Any]:
+def run_tracking_benchmark(
+    config: dict[str, Any], model_dir: str | Path
+) -> dict[str, Any]:
     """Run every detection source on the same simulated scenarios and score them."""
     tcfg = config["tracking"]
     scenario_cfg = ScenarioConfig.from_config(config)
@@ -288,13 +303,19 @@ def run_tracking_benchmark(config: dict[str, Any], model_dir: str | Path) -> dic
 
     for i in range(int(ev["n_scenarios"])):
         kind = KINDS[i % len(KINDS)]
-        scenario = build_scenario(int(ev["seed"]) + i, scenario_cfg, kind, float(ev["severity"]))
+        scenario = build_scenario(
+            int(ev["seed"]) + i, scenario_cfg, kind, float(ev["severity"])
+        )
         if scenario.n_ships == 0:
             continue
         detections_by_source = {
             "oracle": _oracle_detections(scenario),
-            "restored": detect_sequence(pipeline, scenario.frames, "restored", threshold)[0],
-            "classical": detect_sequence(pipeline, scenario.frames, "classical", threshold)[0],
+            "restored": detect_sequence(
+                pipeline, scenario.frames, "restored", threshold
+            )[0],
+            "classical": detect_sequence(
+                pipeline, scenario.frames, "classical", threshold
+            )[0],
             "raw": detect_sequence(pipeline, scenario.frames, "raw", threshold)[0],
         }
         if retrained is not None:
@@ -304,7 +325,9 @@ def run_tracking_benchmark(config: dict[str, Any], model_dir: str | Path) -> dic
         for name, detections in detections_by_source.items():
             snapshots = run_tracking(detections, scenario.times, params, horizon)
             per_source[name].append(
-                _score_scenario(scenario, detections, snapshots, horizons, match_distance)
+                _score_scenario(
+                    scenario, detections, snapshots, horizons, match_distance
+                )
             )
 
     report: dict[str, Any] = {
@@ -323,7 +346,8 @@ def run_tracking_benchmark(config: dict[str, Any], model_dir: str | Path) -> dic
     for name, results in per_source.items():
         entry = _aggregate(results)
         entry["by_kind"] = {
-            kind: _aggregate([r for r in results if r["kind"] == kind]) for kind in KINDS
+            kind: _aggregate([r for r in results if r["kind"] == kind])
+            for kind in KINDS
         }
         report["sources"][name] = entry
     return report
@@ -443,7 +467,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/default.yaml")
     parser.add_argument("--model-dir", default=None, help="defaults to export.onnx_dir")
-    parser.add_argument("--gate", action="store_true", help="exit with code 1 if the gate fails")
+    parser.add_argument(
+        "--gate", action="store_true", help="exit with code 1 if the gate fails"
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)

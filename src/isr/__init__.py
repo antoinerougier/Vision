@@ -1,4 +1,4 @@
-"""isr_restore: AI-assisted restoration of degraded ISR imagery.
+"""isr: AI-assisted restoration of degraded ISR imagery.
 
 The package is organised so that the *serving* path (ONNX Runtime + numpy + OpenCV)
 never imports PyTorch. Only the training / export modules do.

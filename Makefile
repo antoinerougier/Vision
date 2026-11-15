@@ -22,35 +22,35 @@ format:  ## Auto-format and auto-fix what can be fixed
 	ruff format .
 
 test:  ## Unit + integration tests with coverage
-	$(PYTHON) -m pytest --cov=isr_restore --cov-report=term-missing
+	$(PYTHON) -m pytest --cov=isr --cov-report=term-missing
 
 train:  ## Train the detector (clean data) then the restoration network
-	$(PYTHON) -m isr_restore.train_detector --config $(CONFIG)
-	$(PYTHON) -m isr_restore.train_restoration --config $(CONFIG)
+	$(PYTHON) -m isr.train_detector --config $(CONFIG)
+	$(PYTHON) -m isr.train_restoration --config $(CONFIG)
 
 export:  ## Export both models to ONNX (with a numerical parity check)
-	$(PYTHON) -m isr_restore.export --config $(CONFIG)
+	$(PYTHON) -m isr.export --config $(CONFIG)
 
 evaluate:  ## Benchmark the ONNX models, write reports/
-	$(PYTHON) -m isr_restore.evaluate --config $(CONFIG)
+	$(PYTHON) -m isr.evaluate --config $(CONFIG)
 
 gate:  ## Benchmark AND fail (exit 1) if quality floors are not met
-	$(PYTHON) -m isr_restore.evaluate --config $(CONFIG) --gate
+	$(PYTHON) -m isr.evaluate --config $(CONFIG) --gate
 
 evaluate-tracking:  ## Benchmark tracking + 10-minute forecast on simulated sequences
-	$(PYTHON) -m isr_restore.evaluate_tracking --config $(CONFIG)
+	$(PYTHON) -m isr.evaluate_tracking --config $(CONFIG)
 
 gate-tracking:  ## Same benchmark, AND fail (exit 1) if the tracking floors are not met
-	$(PYTHON) -m isr_restore.evaluate_tracking --config $(CONFIG) --gate
+	$(PYTHON) -m isr.evaluate_tracking --config $(CONFIG) --gate
 
 pipeline: train export gate gate-tracking  ## Full ML pipeline: train -> export -> both quality gates
 
 serve:  ## Run the API locally with auto-reload
-	uvicorn isr_restore.api:app --reload --port 8000
+	uvicorn isr.api:app --reload --port 8000
 
 viz:  ## Start the API and print the dashboard address (http://localhost:8000/viz)
 	@echo "Dashboard: http://localhost:8000/viz"
-	uvicorn isr_restore.api:app --port 8000
+	uvicorn isr.api:app --port 8000
 
 docker-build:  ## Build the serving image
 	docker build -t $(IMAGE) .

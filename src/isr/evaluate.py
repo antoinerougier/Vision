@@ -1,8 +1,8 @@
 """Benchmark the ONNX pipeline and (optionally) enforce the CI quality gate.
 
 Usage:
-    python -m isr_restore.evaluate --config configs/default.yaml           # benchmark + report
-    python -m isr_restore.evaluate --config configs/default.yaml --gate    # exit 1 if below floors
+    python -m isr.evaluate --config configs/default.yaml           # benchmark + report
+    python -m isr.evaluate --config configs/default.yaml --gate    # exit 1 if below floors
 
 For every degradation kind and severity we measure, on a held-out synthetic test set:
 
@@ -53,7 +53,9 @@ def _make_test_set(config: dict[str, Any]) -> tuple[list[np.ndarray], list[np.nd
 def _detect_all(
     pipeline: OnnxPipeline, images: list[np.ndarray], threshold: float
 ) -> list[np.ndarray]:
-    return [pipeline.detect(img, restore=False, score_threshold=threshold) for img in images]
+    return [
+        pipeline.detect(img, restore=False, score_threshold=threshold) for img in images
+    ]
 
 
 def _measure_latency(pipeline: OnnxPipeline, images: list[np.ndarray]) -> float:
@@ -78,7 +80,9 @@ def run_benchmark(config: dict[str, Any], model_dir: str | Path) -> dict[str, An
     # directly on degraded images (no restoration layer). Present when `make train` produced it.
     baseline_pipeline = None
     if (Path(model_dir) / "detector_augmented.onnx").exists():
-        baseline_pipeline = OnnxPipeline(model_dir, detector_file="detector_augmented.onnx")
+        baseline_pipeline = OnnxPipeline(
+            model_dir, detector_file="detector_augmented.onnx"
+        )
 
     clean_ap = average_precision(
         _detect_all(pipeline, clean_images, ap_threshold), ground_truth, iou
@@ -91,7 +95,12 @@ def run_benchmark(config: dict[str, Any], model_dir: str | Path) -> dict[str, An
             # Seeded per (kind, severity, image) so that the benchmark is fully reproducible.
             kind_offset = KINDS.index(kind) * 10_000 + int(severity * 100)
             degraded = [
-                degrade(img, sample_rng(eval_cfg["test_seed"] + 1 + kind_offset, i), kind, severity)
+                degrade(
+                    img,
+                    sample_rng(eval_cfg["test_seed"] + 1 + kind_offset, i),
+                    kind,
+                    severity,
+                )
                 for i, img in enumerate(clean_images)
             ]
             restored = [pipeline.restore(img) for img in degraded]
@@ -111,7 +120,9 @@ def run_benchmark(config: dict[str, Any], model_dir: str | Path) -> dict[str, An
             # Baseline 2: a detector retrained with degradation augmentation, no restoration.
             ap_augmented = (
                 average_precision(
-                    _detect_all(baseline_pipeline, degraded, ap_threshold), ground_truth, iou
+                    _detect_all(baseline_pipeline, degraded, ap_threshold),
+                    ground_truth,
+                    iou,
                 )
                 if baseline_pipeline is not None
                 else None
@@ -124,21 +135,43 @@ def run_benchmark(config: dict[str, Any], model_dir: str | Path) -> dict[str, An
                 "ap_augmented_detector": ap_augmented,
                 "ap_gain": ap_restored - ap_degraded,
                 "psnr_degraded": float(
-                    np.mean([psnr(c, d) for c, d in zip(clean_images, degraded, strict=True)])
+                    np.mean(
+                        [
+                            psnr(c, d)
+                            for c, d in zip(clean_images, degraded, strict=True)
+                        ]
+                    )
                 ),
                 "psnr_restored": float(
-                    np.mean([psnr(c, r) for c, r in zip(clean_images, restored, strict=True)])
+                    np.mean(
+                        [
+                            psnr(c, r)
+                            for c, r in zip(clean_images, restored, strict=True)
+                        ]
+                    )
                 ),
                 "ssim_degraded": float(
-                    np.mean([ssim(c, d) for c, d in zip(clean_images, degraded, strict=True)])
+                    np.mean(
+                        [
+                            ssim(c, d)
+                            for c, d in zip(clean_images, degraded, strict=True)
+                        ]
+                    )
                 ),
                 "ssim_restored": float(
-                    np.mean([ssim(c, r) for c, r in zip(clean_images, restored, strict=True)])
+                    np.mean(
+                        [
+                            ssim(c, r)
+                            for c, r in zip(clean_images, restored, strict=True)
+                        ]
+                    )
                 ),
             }
             entry = results[kind][str(severity)]
             entry["psnr_gain_db"] = entry["psnr_restored"] - entry["psnr_degraded"]
-            augmented_text = f"{ap_augmented:.3f}" if ap_augmented is not None else "n/a"
+            augmented_text = (
+                f"{ap_augmented:.3f}" if ap_augmented is not None else "n/a"
+            )
             print(
                 f"{kind:12s} sev {severity:.1f}  AP degraded {ap_degraded:.3f} | "
                 f"classical {ap_classical:.3f} | restored {ap_restored:.3f} | "
@@ -176,7 +209,9 @@ def run_benchmark(config: dict[str, Any], model_dir: str | Path) -> dict[str, An
         "clean_ap": clean_ap,
         "clean_ap_augmented_detector": (
             average_precision(
-                _detect_all(baseline_pipeline, clean_images, ap_threshold), ground_truth, iou
+                _detect_all(baseline_pipeline, clean_images, ap_threshold),
+                ground_truth,
+                iou,
             )
             if baseline_pipeline is not None
             else None
@@ -209,7 +244,9 @@ def write_markdown_table(report: dict[str, Any], path: Path) -> None:
     for kind, by_severity in report["results"].items():
         for severity, r in by_severity.items():
             marker = (
-                " (unseen)" if float(severity) > report["meta"]["train_severity_range"][1] else ""
+                " (unseen)"
+                if float(severity) > report["meta"]["train_severity_range"][1]
+                else ""
             )
             augmented = r.get("ap_augmented_detector")
             augmented_text = f"{augmented:.3f}" if augmented is not None else "n/a"
@@ -234,7 +271,9 @@ def write_figures(
     clean, gt = images[index], boxes[index]
 
     def to_bgr(img: np.ndarray, detections: np.ndarray | None) -> np.ndarray:
-        canvas = cv2.cvtColor((np.clip(img, 0, 1) * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        canvas = cv2.cvtColor(
+            (np.clip(img, 0, 1) * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR
+        )
         canvas = cv2.resize(canvas, None, fx=2, fy=2, interpolation=cv2.INTER_NEAREST)
         for b in gt:  # ground truth in green
             cv2.rectangle(
@@ -257,15 +296,21 @@ def write_figures(
 
     rows = []
     for kind in KINDS:
-        degraded = degrade(clean, sample_rng(eval_cfg["test_seed"] + 99, 0), kind, GATE_SEVERITY)
+        degraded = degrade(
+            clean, sample_rng(eval_cfg["test_seed"] + 99, 0), kind, GATE_SEVERITY
+        )
         restored = pipeline.restore(degraded)
         panels = [
             to_bgr(clean, pipeline.detect(clean, restore=False)),
             to_bgr(degraded, pipeline.detect(degraded, restore=False)),
             to_bgr(restored, pipeline.detect(restored, restore=False)),
         ]
-        for panel, label in zip(panels, (f"{kind}: clean", "degraded", "restored"), strict=False):
-            cv2.putText(panel, label, (4, 14), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
+        for panel, label in zip(
+            panels, (f"{kind}: clean", "degraded", "restored"), strict=False
+        ):
+            cv2.putText(
+                panel, label, (4, 14), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1
+            )
         rows.append(np.hstack(panels))
     out_dir.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(out_dir / "examples.png"), np.vstack(rows))
@@ -287,14 +332,24 @@ def write_figures(
         ("ap_restored", "+ restoration (ours)", "#4f81bd"),
     ]
     approaches = [
-        a for a in approaches if report["results"][KINDS[0]][severity].get(a[0]) is not None
+        a
+        for a in approaches
+        if report["results"][KINDS[0]][severity].get(a[0]) is not None
     ]
     width = 0.8 / len(approaches)
     fig, ax = plt.subplots(figsize=(8, 3.8))
     for i, (key, label, color) in enumerate(approaches):
         values = [report["results"][k][severity][key] for k in KINDS]
-        ax.bar(x + (i - (len(approaches) - 1) / 2) * width, values, width, label=label, color=color)
-    ax.axhline(report["clean_ap"], color="gray", linestyle="--", label="detector on clean")
+        ax.bar(
+            x + (i - (len(approaches) - 1) / 2) * width,
+            values,
+            width,
+            label=label,
+            color=color,
+        )
+    ax.axhline(
+        report["clean_ap"], color="gray", linestyle="--", label="detector on clean"
+    )
     ax.set_xticks(x, KINDS)
     ax.set_ylabel("AP@0.5")
     ax.set_ylim(0, 1.05)
@@ -333,7 +388,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/default.yaml")
     parser.add_argument("--model-dir", default=None, help="defaults to export.onnx_dir")
-    parser.add_argument("--gate", action="store_true", help="exit with code 1 if the gate fails")
+    parser.add_argument(
+        "--gate", action="store_true", help="exit with code 1 if the gate fails"
+    )
     parser.add_argument("--no-figures", action="store_true")
     args = parser.parse_args()
 
@@ -346,7 +403,9 @@ def main() -> None:
     write_markdown_table(report, report_dir / "results.md")
     if not args.no_figures:
         write_figures(config, model_dir, report, report_dir)
-    print(f"Latency: {report['latency_ms_per_image']:.1f} ms / image (restore + detect, CPU)")
+    print(
+        f"Latency: {report['latency_ms_per_image']:.1f} ms / image (restore + detect, CPU)"
+    )
 
     if args.gate:
         failures = check_gate(report, config["gate"])

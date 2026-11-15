@@ -45,7 +45,7 @@ evaluation:
   iou_threshold: 0.5
   report_dir: reports
 
-# Quality gate enforced in CI (`python -m isr_restore.evaluate --gate`).
+# Quality gate enforced in CI (`python -m isr.evaluate --gate`).
 # The restored images must beat the degraded ones by at least this much, averaged over
 # all degradation kinds at severity 1.0. A model that regresses below these floors
 # cannot be merged.

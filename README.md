@@ -327,7 +327,7 @@ never drift from `configs/default.yaml`.
 
 ```
 configs/default.yaml     single source of truth for hyper-parameters and CI thresholds
-src/isr_restore/
+src/isr/
   degradations.py        sensor / weather degradation simulator
   synthetic.py           procedural scenes with ground truth
   classical.py           non-ML baseline
