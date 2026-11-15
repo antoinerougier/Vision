@@ -40,6 +40,11 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# The dashboard HTML ships inside the package so that the Docker image (non-editable
+# install) can serve it.
+[tool.setuptools.package-data]
+isr_restore = ["static/*.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"

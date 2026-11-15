@@ -1,4 +1,4 @@
-# Vision
+# isr-restore
 
 > An AI **pre-processing layer** for degraded ISR imagery (SAR speckle, low light, fog,
 > low-quality thermal). It sits *in front of* an existing detector and restores the signal
@@ -33,13 +33,14 @@ a Dockerised API, tests, and GitHub Actions pipelines (CI, retraining, release).
 1. [How it works](#how-it-works)
 2. [Data](#data)
 3. [Results](#results)
-4. [Quick start](#quick-start)
-5. [API](#api)
-6. [Docker](#docker)
-7. [MLOps: tests and CI/CD](#mlops-tests-and-cicd)
-8. [Project layout](#project-layout)
-9. [Using real data](#using-real-data)
-10. [Limitations and next steps](#limitations-and-next-steps)
+4. [Tracking and 10-minute forecast](#tracking-and-10-minute-forecast)
+5. [Quick start](#quick-start)
+6. [API and dashboard](#api-and-dashboard)
+7. [Docker](#docker)
+8. [MLOps: tests and CI/CD](#mlops-tests-and-cicd)
+9. [Project layout](#project-layout)
+10. [Using real data](#using-real-data)
+11. [Limitations and next steps](#limitations-and-next-steps)
 
 ---
 
@@ -156,6 +157,77 @@ the same simulator is used for training and testing (only the severity extrapola
 distribution). Treat the ordering of methods as a hypothesis to test on real data, not a finding.
 <!-- RESULTS:END -->
 
+## Tracking and 10-minute forecast
+
+A second layer sits on top of the detector. It answers the operational question: *"a sharp photo
+is taken every hour; in between, a degraded frame arrives every 2 minutes. Where are the ships,
+and where will each one be in the next 10 minutes?"*
+
+```
+ t = 0 min      sharp reference photo ──► detector ─────────┐
+ t = 2, 4, ...  degraded frame ──► restoration ──► detector ┼──► tracker (Kalman) ──► forecast +2 ... +10 min
+                                                            │        keeps ship identities,        with a 95 %
+                                                            │        coasts through missed          uncertainty
+                                                            ┘        detections                     ellipse
+```
+
+| Module | What it does |
+|---|---|
+| `trajectories.py` | Simulates ship motion: roughly constant speed, steering jitter and **maneuvers** (turns), so a straight-line forecast cannot look perfect by construction. |
+| `scenario.py` | Builds a full sequence: static sea, buoys (static false alarms), moving ships, the sharp photo at t=0 and a degraded frame every 2 minutes, with exact ground truth. |
+| `tracking.py` | Multi-ship **Kalman filter** (state: x, y, vx, vy), Mahalanobis-gated association, track confirmation / deletion, and the forecast with its covariance (numpy only). |
+| `sequence.py` | Glue: detect every frame (with restoration, with a classical filter, or alone), run the tracker, produce JSON-ready snapshots. |
+| `evaluate_tracking.py` | Benchmark and CI gate for the whole chain. |
+
+The sharp photo gives the tracker reliable starting positions; the degraded frames then update
+them. A track is confirmed after two sightings (this removes isolated false alarms), keeps
+"coasting" on the motion model for up to four missed frames, and is deleted after that. The
+process noise of the filter was tuned on separate validation scenarios (seeds disjoint from the
+benchmark; SAR speckle, near-perfect detections), and the 95 % ellipse is checked for calibration
+rather than assumed.
+
+### Tracking results
+
+40 simulated scenarios (10 per degradation kind, severity 1.0, 16 frames each, 2 minutes apart),
+every ship-frame scored against the exact ground truth. Errors are in pixels at +10 minutes
+(ships move 0.8 to 2.5 pixels per minute). All rows use the **same tracker**; only the
+source of the detections changes.
+
+| Detections from | Ship recall | False alarms / frame | Track completeness | ID switches / ship | Forecast availability | Kalman error | Linear (5 pts) error | Linear (2 pts) error | Stationary error | 95 % ellipse coverage |
+|---|---|---|---|---|---|---|---|---|---|---|
+| oracle detections (upper bound) | 1.00 | 0.00 | 1.00 | 0.04 | 1.00 | 5.5 | 6.4 | 14.7 | 16.0 | 0.96 |
+| restoration + detector (ours) | 0.49 | 0.13 | 0.69 | 0.04 | 0.73 | 6.5 | 6.3 | 9.0 | 18.2 | 0.97 |
+| classical filter + detector | 0.62 | 1.81 | 0.85 | 0.06 | 0.86 | 5.9 | 5.9 | 10.8 | 18.2 | 0.96 |
+| detector alone | 0.02 | 0.00 | 0.16 | 0.03 | 0.23 | 17.1 | 17.2 | 17.2 | 19.3 | 1.00 |
+| retrained detector (augmentation) | 0.97 | 0.29 | 1.00 | 0.01 | 1.00 | 3.8 | 3.3 | 6.4 | 16.9 | 0.96 |
+
+![Forecast error and track completeness](reports/tracking_forecast.png)
+
+How to read it:
+
+1. **The forecast works when the detections are good.** With near-perfect detections ("oracle"),
+   the Kalman forecast at +10 minutes is off by 5.5 px, against 16 px if the ship is assumed not
+   to move. The 95 % ellipse contains the true position 96 % of the time, so the uncertainty
+   display is honest.
+2. **Tracking breaks without enhancement.** The detector alone follows the ships in only 16 % of
+   the ship-frames (it loses them after the sharp photo), so no forecast exists for most of them.
+   With restoration this becomes 69 %. This is the case for the restoration layer in a tracking
+   product: continuity of the track, not only per-image accuracy.
+3. **But restoration is not the best option here either.** The classical filter keeps 85 % of the
+   ships tracked (at the price of 1.8 false alarms per frame), and a detector retrained with
+   augmentation keeps 100 %. Per degradation kind, restoration + detector follows 99 % of the ships
+   in SAR speckle, 80 % in low light and fog, but only 16 % in thermal, where the learned
+   restorer fails (the same weakness as in the detection benchmark).
+4. **Kalman is not clearly better than a simple regression.** A least-squares line through the
+   last five detections is as accurate (6.3 px vs 6.5 px with restored detections). The Kalman
+   filter's real advantages here are the uncertainty ellipse and the track management
+   (confirmation, coasting, identity), not a lower error. A learned trajectory model or a
+   turn-aware motion model (constant turn rate) are the natural next experiments.
+5. **Everything is simulated**, including the motion model: real vessels (and real AIS-style
+   traffic patterns) behave differently.
+
+Reproduce: `make evaluate-tracking` (or `make gate-tracking` to enforce the CI floors).
+
 ## Quick start
 
 ```bash
@@ -164,17 +236,20 @@ python -m venv .venv && source .venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 make install        # editable install with the train, serve and dev extras
 
-make test           # 74 tests with coverage
+make test           # 140 tests with coverage
 make lint           # ruff check + format check
 make pipeline       # train -> export to ONNX -> quality gate
-make evaluate       # full benchmark, writes reports/
+make evaluate       # detection benchmark, writes reports/
+make evaluate-tracking  # tracking + forecast benchmark, writes reports/
+make viz            # API + dashboard on http://localhost:8000/viz
 make serve          # API on http://localhost:8000 (needs the ONNX files in models/)
 ```
 
-`make help` lists every command. All hyper-parameters, paths and the CI quality thresholds live
+`make help` lists every command. `uv` works too (it reads the same `pyproject.toml`): replace
+`pip install ...` by `uv pip install ...`. All hyper-parameters, paths and the CI quality thresholds live
 in a single file, `configs/default.yaml`. A run is fully described by *(git commit + that file)*.
 
-## API
+## API and dashboard
 
 ```bash
 make serve
@@ -187,6 +262,23 @@ curl -F "file=@sample.png" http://localhost:8000/preprocess -o restored.png
 | `GET /health` | Readiness probe: `200` when both ONNX models are present, `503` otherwise. |
 | `POST /preprocess` | Image in, restored PNG out. **Drop-in layer in front of your own detector.** |
 | `POST /detect` | Image in, JSON detections out, with or without restoration (`?restore=`). |
+| `GET /viz` | **Interactive dashboard** (see below). `GET /` redirects to it. |
+| `GET /sim/scenario` | Simulates a sequence, runs detection + tracking + forecast, returns JSON with the ground truth (`seed`, `kind`, `severity`, `n_frames`, `mode`). |
+| `GET /sim/frame/{n}` | One image of that sequence as PNG (`view=input\|processed\|clean`). |
+| `POST /track` | **Your own images**: upload an ordered sequence (`files`), with `dt_minutes`, `horizon_minutes`, `mode`; get detections, tracks, velocities and forecasts with 95 % ellipses. |
+
+```bash
+# Track ships on your own sequence (first image = sharp reference, then one image every 2 minutes)
+curl -F "files=@t00.png" -F "files=@t02.png" -F "files=@t04.png" -F "files=@t06.png" \
+     "http://localhost:8000/track?dt_minutes=2&horizon_minutes=10"
+```
+
+The dashboard (`/viz`) runs the simulation in the browser: pick the degradation, severity and the
+source of the detections (restoration, classical filter or detector alone), then scrub or play
+through the frames. It overlays detections, tracks with their trails, the 10-minute forecast with
+its 95 % uncertainty ellipses, and, optionally, the **ground truth and the true future path** so
+you can see how far each forecast is from what really happened. It is a single HTML file with no
+external dependency, so it also works inside the Docker container.
 
 Input hygiene: 10 MB upload limit, 4096×4096 pixel limit, 16-bit PNG/TIFF supported (common for
 SAR and thermal sensors). Interactive docs are served at `/docs`.
@@ -207,23 +299,29 @@ curl http://localhost:8000/health
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | every push to `main`, every PR | **Lint** (ruff) → **tests** on Python 3.10 / 3.11 / 3.12 with coverage → **model quality gate** on the committed ONNX files → **Docker build + HTTP smoke test** of the real image. |
+| `ci.yml` | every push to `main`, every PR | **Lint** (ruff) → **tests** on Python 3.10 / 3.11 / 3.12 with coverage → **two model quality gates** (detection, then tracking and forecast) on the committed ONNX files → **Docker build + HTTP smoke test** of the real image. |
 | `train.yml` | manual + monthly | Retrains both networks, exports to ONNX, enforces the gate, uploads the models and the report as artefacts. It commits nothing: a human reviews and opens a PR. |
 | `release.yml` | git tag `v*` | Builds the image and publishes it to GitHub Container Registry. |
 
 Other safeguards: `dependabot.yml` for dependency updates and a `.pre-commit-config.yaml`
 (`pre-commit install`).
 
-**The model quality gate** (`evaluate --gate`) is the MLOps piece worth highlighting. It fails the
-build when the restoration layer stops helping: mean AP gain below the floor, mean PSNR gain
-below the floor, or latency above budget (thresholds in `configs/default.yaml`). A model, a
+**The model quality gates** (`evaluate --gate` and `evaluate_tracking --gate`) are the MLOps piece
+worth highlighting. The detection gate fails the build when the restoration layer stops helping: mean AP gain below the floor, mean PSNR gain
+below the floor, or latency above budget. The tracking gate fails when too few ships stay
+tracked, when the forecast no longer halves the error of "the ship does not move", or when the 95 %
+ellipse stops being calibrated (thresholds in `configs/default.yaml`). A model, a
 simulator or an inference-code change that regresses cannot be merged.
 
 **Tests** (`tests/`) cover the simulator (ranges, determinism, severity ordering), the metrics
 (AP / PSNR / SSIM against hand-computed cases), the post-processing, the models (shapes, any
 input size), the data loaders, the scripts, the quality gate logic, and the API over HTTP (including bad
 uploads, oversized files and 16-bit images). The ONNX models used by the API tests are exported
-on the fly, which also exercises the PyTorch-to-ONNX path.
+on the fly, which also exercises the PyTorch-to-ONNX path. The tracking layer has its own tests: the
+Kalman filter (velocity recovery, coasting, gating, identity keeping, and a Monte-Carlo check that
+the 95 % ellipse is calibrated), the motion and scene simulators, the benchmark metrics and the new
+routes. A test also verifies that the defaults used by the API (which has no YAML file in Docker)
+never drift from `configs/default.yaml`.
 
 ## Project layout
 
@@ -241,7 +339,14 @@ src/isr_restore/
   postprocess.py         decoding of the detector output
   metrics.py             AP@IoU, PSNR, SSIM
   evaluate.py            benchmark, figures, CI quality gate
-  api.py                 FastAPI service
+  trajectories.py        ship motion simulator (speed, steering noise, maneuvers)
+  scenario.py            sequences: sharp photo + degraded frames + ground truth
+  tracking.py            Kalman multi-ship tracker and forecast with uncertainty
+  sequence.py            detection + tracking glue (used by the API and the benchmark)
+  evaluate_tracking.py   tracking benchmark and CI gate
+  serving.py             pipeline loading and upload validation shared by the routes
+  api.py, tracking_api.py  FastAPI service (detection routes / tracking routes)
+  static/dashboard.html  the dashboard (plain HTML + JavaScript)
 scripts/                 voc_to_yolo.py, make_sample_image.py
 tests/                   pytest suite
 models/                  committed ONNX models (PyTorch checkpoints are git-ignored)
@@ -271,6 +376,11 @@ self-supervised objective. Expect to swap the tiny networks for larger backbones
 ## Limitations and next steps
 
 - **Synthetic data only.** Gains on real sensors are unproven. This is the first thing to test.
+  This includes the ship motion: forecasts were never tested on real vessel tracks.
+- **Tracking is image-plane only:** pixels, no georeferencing, no sensor motion compensation, no
+  AIS fusion. Convert with the ground sampling distance of your sensor.
+- **Constant-velocity forecast.** It is calibrated on turning ships but cannot anticipate a
+  turn that has not started yet.
 - **Grayscale, single class, 128×128.** Real products need multi-channel, larger frames and several
   classes.
 - **The learned restorer does not generalise past its training severities** and loses to a

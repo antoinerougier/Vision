@@ -6,6 +6,11 @@ GET  /health        liveness / readiness probe (used by Docker HEALTHCHECK and C
 POST /preprocess    upload an image -> restored PNG (drop-in layer in front of YOUR detector)
 POST /detect        upload an image -> JSON detections, with or without restoration
 
+GET  /viz           interactive dashboard: simulated sequence, tracks and 10-minute forecast
+GET  /sim/scenario  simulate a sequence (sharp photo + degraded frames) and track the ships
+GET  /sim/frame/N   one image of that sequence (PNG)
+POST /track         upload an ordered image sequence -> tracks and forecasts (JSON)
+
 Run locally:
     uvicorn isr_restore.api:app --reload
 
@@ -16,46 +21,32 @@ from __future__ import annotations
 
 import os
 import time
-from functools import lru_cache
 from pathlib import Path
 
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import __version__
-from .inference import OnnxPipeline
-
-# Basic input hygiene: a service exposed to a network must bound its resource usage.
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
-MAX_PIXELS = 4096 * 4096
+from .serving import decode_upload as _decode_upload
+from .serving import get_pipeline
+from .tracking_api import router as tracking_router
 
 app = FastAPI(
     title="isr-restore",
     version=__version__,
-    description="AI pre-processing layer for degraded ISR imagery (SAR, low light, fog, thermal).",
+    description="AI pre-processing layer for degraded ISR imagery (SAR, low light, fog, thermal), "
+    "with ship tracking and a 10-minute trajectory forecast.",
 )
+# Tracking / forecasting / dashboard routes live in their own module.
+app.include_router(tracking_router)
 
 
-@lru_cache(maxsize=1)
-def get_pipeline() -> OnnxPipeline:
-    """Load the ONNX models once per process (lazily, on first use)."""
-    return OnnxPipeline(os.environ.get("ISR_MODEL_DIR", "models"))
-
-
-def _decode_upload(data: bytes) -> np.ndarray:
-    """Decode an uploaded image to float32 grayscale in [0, 1], validating it on the way."""
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Image too large (max 10 MB).")
-    # ANYDEPTH keeps 16-bit PNG / TIFF (common for SAR and thermal) instead of squashing to 8 bit.
-    raw = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_ANYDEPTH | cv2.IMREAD_GRAYSCALE)
-    if raw is None:
-        raise HTTPException(status_code=422, detail="Could not decode the image.")
-    if raw.size > MAX_PIXELS:
-        raise HTTPException(status_code=413, detail="Image has too many pixels (max 4096x4096).")
-    scale = 65535.0 if raw.dtype == np.uint16 else 255.0
-    return raw.astype(np.float32) / scale
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    """Send visitors of the bare URL to the dashboard."""
+    return RedirectResponse(url="/viz")
 
 
 @app.get("/health")

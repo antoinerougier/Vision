@@ -50,6 +50,9 @@ jobs:
       - name: Benchmark and enforce the quality gate
         run: python -m isr_restore.evaluate --config configs/default.yaml --gate
 
+      - name: Tracking benchmark and gate
+        run: python -m isr_restore.evaluate_tracking --config configs/default.yaml --gate
+
       - name: Upload the new models and the report
         if: always()
         uses: actions/upload-artifact@v4

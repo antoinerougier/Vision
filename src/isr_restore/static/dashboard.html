@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISR tracking dashboard</title>
+<style>
+  /* Single self-contained page: no framework, no CDN, so it also works offline in Docker. */
+  :root {
+    color-scheme: dark;
+    --bg: #0a0e13;
+    --panel: #111821;
+    --panel-2: #172130;
+    --line: #243244;
+    --text: #e8eef5;
+    --muted: #8a9bb0;
+    --accent: #4cc9f0;
+    --warn: #ffd166;
+    --good: #06d6a0;
+    --bad: #ef476f;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans); }
+  body { min-height: 100vh; padding: 20px 16px 40px; }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  header p { margin: 0; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+  @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .stack { display: grid; gap: 16px; }
+
+  /* Stage */
+  .stage { position: relative; width: 100%; max-width: 780px; margin: 0 auto; aspect-ratio: 1 / 1; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+  canvas { width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; left: 10px; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+  .chip { background: rgba(10, 14, 19, .78); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font: 12px var(--mono); backdrop-filter: blur(4px); }
+  .chip.ref { color: var(--good); border-color: var(--good); }
+  .chip.deg { color: var(--warn); border-color: #6b5a2a; }
+  .overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(10, 14, 19, .82); text-align: center; padding: 20px; }
+  .overlay[hidden] { display: none; }
+  .overlay.error { color: var(--bad); }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+
+  /* Timeline */
+  .timeline { display: flex; align-items: center; gap: 10px; margin: 12px auto 0; max-width: 780px; }
+  .timeline input[type=range] { flex: 1; accent-color: var(--accent); }
+  button { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: #04202a; border-color: var(--accent); font-weight: 600; }
+  .tl-label { font: 13px var(--mono); min-width: 190px; text-align: right; color: var(--muted); }
+  .marks { display: flex; justify-content: space-between; max-width: 780px; margin: 2px auto 0; padding: 0 2px; color: var(--muted); font: 11px var(--mono); }
+
+  /* Controls */
+  label { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
+  select, input[type=number] { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font: inherit; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { flex: 1; }
+  .row > button { flex: none; }
+  .sev { display: flex; align-items: center; gap: 10px; }
+  .sev input { flex: 1; accent-color: var(--accent); }
+  .sev output { font: 13px var(--mono); min-width: 34px; text-align: right; }
+  .seg { display: grid; grid-auto-flow: column; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: var(--panel-2); padding: 6px 4px; font-size: 12px; }
+  .seg button[aria-pressed=true] { background: var(--accent); color: #04202a; font-weight: 600; }
+  .checks { display: grid; gap: 6px; }
+  .checks label { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text); font-size: 13px; cursor: pointer; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex: none; }
+  .go { margin-top: 14px; width: 100%; }
+
+  /* Tracks table */
+  table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 0 6px 6px 0; }
+  td { padding: 4px 6px 4px 0; border-top: 1px solid var(--line); white-space: nowrap; }
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .kpi { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
+  .kpi b { display: block; font: 600 18px var(--mono); }
+  .kpi span { color: var(--muted); font-size: 11px; }
+  .note { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+  .empty { color: var(--muted); padding: 8px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ISR tracking dashboard</h1>
+    <p>Simulated data. A sharp photo, then a degraded frame every 2 minutes: detect, follow and forecast the next 10 minutes.</p>
+  </header>
+
+  <div class="grid">
+    <main>
+      <div class="stage">
+        <canvas id="canvas" role="img" aria-label="Simulated maritime scene with detections, tracks and forecasts"></canvas>
+        <div class="hud" id="hud"></div>
+        <div class="overlay" id="overlay"><div><div class="spinner"></div><div id="overlay-text">Loading…</div></div></div>
+      </div>
+      <div class="timeline">
+        <button id="prev" aria-label="Previous frame">◀</button>
+        <button id="play" aria-label="Play or pause">▶ Play</button>
+        <button id="next" aria-label="Next frame">▶|</button>
+        <input type="range" id="slider" min="0" max="15" value="0" aria-label="Frame">
+        <div class="tl-label" id="tl-label">t = +0 min</div>
+      </div>
+      <div class="marks"><span>sharp photo</span><span>degraded frames, one every 2 min →</span></div>
+    </main>
+
+    <aside class="stack">
+      <section class="card">
+        <h2>Scenario</h2>
+        <label for="kind">Degradation</label>
+        <select id="kind">
+          <option value="sar_speckle">SAR speckle</option>
+          <option value="low_light">Low light</option>
+          <option value="fog">Fog</option>
+          <option value="thermal">Low-quality thermal</option>
+        </select>
+        <label for="severity">Severity</label>
+        <div class="sev"><input type="range" id="severity" min="0" max="1.3" step="0.1" value="1.0"><output id="severity-out">1.0</output></div>
+        <label for="mode">Detections come from</label>
+        <select id="mode">
+          <option value="restored">Restoration + detector (ours)</option>
+          <option value="classical">Classical filter + detector</option>
+          <option value="raw">Detector alone</option>
+        </select>
+        <div class="row">
+          <div><label for="seed">Seed</label><input type="number" id="seed" min="0" max="1000000" value="7"></div>
+          <div><label for="nframes">Frames</label><input type="number" id="nframes" min="4" max="40" value="16"></div>
+          <button id="dice" aria-label="Random seed" style="margin-top:24px">🎲</button>
+        </div>
+        <button class="primary go" id="run">Run simulation</button>
+      </section>
+
+      <section class="card">
+        <h2>Image</h2>
+        <div class="seg" id="view">
+          <button data-view="input" aria-pressed="true">Sensor</button>
+          <button data-view="processed" aria-pressed="false">Detector input</button>
+          <button data-view="clean" aria-pressed="false">True scene</button>
+        </div>
+        <h2 style="margin-top:14px">Layers</h2>
+        <div class="checks">
+          <label><input type="checkbox" id="l-det" checked><span class="sw" style="background:#ffe066"></span>Detections</label>
+          <label><input type="checkbox" id="l-track" checked><span class="sw" style="background:#4cc9f0"></span>Tracks and trails</label>
+          <label><input type="checkbox" id="l-fc" checked><span class="sw" style="background:#f72585"></span>10-minute forecast</label>
+          <label><input type="checkbox" id="l-unc" checked><span class="sw" style="background:#b388ff"></span>Uncertainty (95 %)</label>
+          <label><input type="checkbox" id="l-truth"><span class="sw" style="background:#fff"></span>Ground truth (boxes)</label>
+          <label><input type="checkbox" id="l-future"><span class="sw" style="background:#fff;opacity:.6"></span>True future path</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Current frame</h2>
+        <div class="kpis">
+          <div class="kpi"><b id="k-ships">–</b><span>ships tracked / real</span></div>
+          <div class="kpi"><b id="k-err">–</b><span>forecast error at +10 min</span></div>
+        </div>
+        <div id="tracks"></div>
+        <p class="note">Positions in pixels, speeds in pixels per minute. Turn on “True future path” to compare each forecast with what the ship really did.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------------------
+// State and helpers
+// ---------------------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const PALETTE = ["#4cc9f0", "#f72585", "#ffd166", "#06d6a0", "#b388ff", "#ff9e4a", "#7bdff2", "#ef476f"];
+const colorOf = (id) => PALETTE[(id - 1) % PALETTE.length];
+const state = { data: null, frame: 0, view: "input", imgs: { input: [], processed: [], clean: [] }, timer: null };
+const canvas = $("canvas");
+const ctx = canvas.getContext("2d");
+
+function query() {
+  return new URLSearchParams({
+    seed: $("seed").value, kind: $("kind").value, severity: $("severity").value,
+    n_frames: $("nframes").value, mode: $("mode").value,
+  }).toString();
+}
+
+function setOverlay(text, { busy = false, error = false, hidden = false } = {}) {
+  const el = $("overlay");
+  el.hidden = hidden;
+  el.classList.toggle("error", error);
+  el.querySelector(".spinner").style.display = busy ? "block" : "none";
+  $("overlay-text").textContent = text;
+}
+
+// ---------------------------------------------------------------------------------------
+// Data loading
+// ---------------------------------------------------------------------------------------
+function loadView(view) {
+  const n = state.data.meta.n_frames;
+  const q = query();
+  return Promise.all(Array.from({ length: n }, (_, i) => new Promise((resolve) => {
+    const img = new Image();
+    img.onload = img.onerror = resolve;
+    img.src = `/sim/frame/${i}?${q}&view=${view}`;
+    state.imgs[view][i] = img;
+  })));
+}
+
+async function run() {
+  stop();
+  setOverlay("Simulating, detecting and tracking… (the first run takes a few seconds)", { busy: true });
+  try {
+    const res = await fetch(`/sim/scenario?${query()}`);
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
+    state.data = await res.json();
+    state.imgs = { input: [], processed: [], clean: [] };
+    state.frame = 0;
+    $("slider").max = state.data.meta.n_frames - 1;
+    $("slider").value = 0;
+    await loadView(state.view);
+    history.replaceState(null, "", `?${query()}`);
+    setOverlay("", { hidden: true });
+    render();
+  } catch (err) {
+    setOverlay(`Could not run the simulation: ${err.message}`, { error: true });
+  }
+}
+
+// ---------------------------------------------------------------------------------------
+// Drawing
+// ---------------------------------------------------------------------------------------
+function fitCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const size = Math.round(canvas.clientWidth * dpr);
+  if (canvas.width !== size) { canvas.width = size; canvas.height = size; }
+}
+
+function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+// Stroke the current path twice (dark halo, then colour) so it reads on any background.
+function haloStroke(color, width, dpr) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.lineWidth = width + 2.5 * dpr; ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+  ctx.restore();
+}
+// A forecast is only meaningful once the filter has seen the ship twice (it needs a speed).
+const hasForecast = (t) => t.n_observations >= 2;
+
+function render() {
+  if (!state.data) return;
+  fitCanvas();
+  const frame = state.data.frames[state.frame];
+  const meta = state.data.meta;
+  const s = canvas.width / meta.image_size;       // image pixels -> canvas pixels
+  const dpr = window.devicePixelRatio || 1;
+  const on = (id) => $(id).checked;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = false;              // keep speckle and pixels crisp
+  const img = state.imgs[state.view][state.frame];
+  if (img && img.complete && img.naturalWidth) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const lw = Math.max(1, dpr);                    // 1 CSS pixel line width
+
+  // Ground truth (what really is there), drawn first so the estimates stay readable.
+  if (on("l-truth") || on("l-future")) {
+    for (const g of frame.ground_truth) {
+      if (on("l-truth")) {
+        const [x1, y1, x2, y2] = g.box;
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.rect(x1 * s, y1 * s, (x2 - x1) * s, (y2 - y1) * s);
+        haloStroke("#ffffff", 1.2 * dpr, dpr);
+      }
+      if (on("l-future") && g.future.length) {
+        ctx.setLineDash([3 * dpr, 4 * dpr]);
+        ctx.beginPath();
+        ctx.moveTo(g.x * s, g.y * s);
+        for (const [x, y] of g.future) ctx.lineTo(x * s, y * s);
+        haloStroke("#ffffff", 1.5 * dpr, dpr);
+        ctx.setLineDash([]);
+        for (const [x, y] of g.future) {
+          ctx.beginPath(); ctx.arc(x * s, y * s, 3.5 * dpr, 0, 6.2832);
+          haloStroke("#ffffff", 1.5 * dpr, dpr);
+        }
+      }
+    }
+  }
+
+  // Detector output.
+  if (on("l-det")) {
+    ctx.strokeStyle = "#ffe066";
+    ctx.lineWidth = lw;
+    ctx.setLineDash([4 * dpr, 3 * dpr]);
+    for (const d of frame.detections) {
+      const [x1, y1, x2, y2] = d.box;
+      ctx.strokeRect(x1 * s, y1 * s, (x2 - x1) * s, (y2 - y1) * s);
+    }
+    ctx.setLineDash([]);
+  }
+
+  // Tracks, forecasts and uncertainty.
+  for (const t of frame.tracks) {
+    const color = colorOf(t.id);
+    const coasting = t.misses > 0;
+
+    if (on("l-unc") && hasForecast(t)) {
+      t.forecast.forEach((f, k) => {
+        const last = k === t.forecast.length - 1;
+        ctx.beginPath();
+        ctx.ellipse(f.x * s, f.y * s, Math.max(f.ellipse.a * s, 1), Math.max(f.ellipse.b * s, 1), f.ellipse.angle, 0, 6.2832);
+        ctx.fillStyle = color + (last ? "30" : "12");
+        ctx.fill();
+        ctx.strokeStyle = color + (last ? "cc" : "55");
+        ctx.lineWidth = lw;
+        ctx.stroke();
+      });
+    }
+    if (on("l-fc") && hasForecast(t)) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.setLineDash([6 * dpr, 4 * dpr]);
+      ctx.beginPath();
+      ctx.moveTo(t.x * s, t.y * s);
+      for (const f of t.forecast) ctx.lineTo(f.x * s, f.y * s);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      t.forecast.forEach((f, k) => {
+        ctx.beginPath();
+        ctx.arc(f.x * s, f.y * s, (2 + k * 0.4) * dpr, 0, 6.2832);
+        ctx.fill();
+      });
+      const end = t.forecast[t.forecast.length - 1];
+      if (end) {
+        ctx.font = `${11 * dpr}px ui-monospace, Menlo, Consolas, monospace`;
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "rgba(0,0,0,.7)";
+        ctx.lineWidth = 3 * dpr;
+        const label = `#${t.id} +${end.minutes_ahead} min`;
+        ctx.strokeText(label, end.x * s + 7 * dpr, end.y * s - 7 * dpr);
+        ctx.fillText(label, end.x * s + 7 * dpr, end.y * s - 7 * dpr);
+      }
+    }
+    if (on("l-track")) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2 * dpr;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      t.history.forEach(([x, y], i) => (i ? ctx.lineTo(x * s, y * s) : ctx.moveTo(x * s, y * s)));
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(t.x * s, t.y * s, 5 * dpr, 0, 6.2832);
+      ctx.fillStyle = coasting ? "rgba(0,0,0,.6)" : color;   // hollow marker = coasting (no detection)
+      ctx.fill();
+      ctx.lineWidth = 2 * dpr;
+      ctx.stroke();
+    }
+  }
+  updateHud(frame, meta);
+  updatePanel(frame);
+}
+
+function updateHud(frame, meta) {
+  const kindName = $("kind").selectedOptions[0].textContent;
+  const hud = $("hud");
+  hud.innerHTML = "";
+  const add = (text, cls) => { const c = document.createElement("span"); c.className = `chip ${cls || ""}`; c.textContent = text; hud.appendChild(c); };
+  add(`t = +${frame.t_minutes} min`);
+  if (frame.is_reference) add("sharp reference photo", "ref");
+  else add(`${kindName}, severity ${Number(meta.severity).toFixed(1)}`, "deg");
+  $("tl-label").textContent = `frame ${frame.index + 1}/${meta.n_frames} · t = +${frame.t_minutes} min`;
+  canvas.setAttribute("aria-label", `Frame ${frame.index + 1}: ${frame.tracks.length} tracked ships`);
+}
+
+function updatePanel(frame) {
+  const n = frame.ground_truth.length;
+  // Forecast error: compare each track's +10 min prediction with the matching real ship.
+  const errors = [];
+  for (const t of frame.tracks) {
+    if (!hasForecast(t)) continue;
+    const end = t.forecast[t.forecast.length - 1];
+    let best = null;
+    for (const g of frame.ground_truth) {
+      const d = dist([t.x, t.y], [g.x, g.y]);
+      if (d < 10 && (!best || d < best.d)) best = { d, g };
+    }
+    if (best && end && best.g.future.length === t.forecast.length) {
+      errors.push(dist([end.x, end.y], best.g.future[best.g.future.length - 1]));
+    }
+  }
+  $("k-ships").textContent = `${frame.tracks.length} / ${n}`;
+  $("k-err").textContent = errors.length ? `${(errors.reduce((a, b) => a + b, 0) / errors.length).toFixed(1)} px` : "–";
+
+  const box = $("tracks");
+  if (!frame.tracks.length) { box.innerHTML = '<div class="empty">No confirmed track in this frame.</div>'; return; }
+  const rows = frame.tracks.map((t) => {
+    const end = t.forecast[t.forecast.length - 1];
+    const status = !hasForecast(t) ? "new" : t.misses ? `coasting ${t.misses}` : "tracked";
+    return `<tr><td><span class="sw" style="background:${colorOf(t.id)}"></span> #${t.id}</td>
+      <td>${hasForecast(t) ? t.speed.toFixed(2) : "–"}</td><td>${hasForecast(t) ? Math.round(t.heading_deg) + "°" : "–"}</td>
+      <td>${end && hasForecast(t) ? `${Math.round(end.x)}, ${Math.round(end.y)}` : "–"}</td><td>${status}</td></tr>`;
+  }).join("");
+  box.innerHTML = `<table><thead><tr><th>ship</th><th>px/min</th><th>head.</th><th>+10 min</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ---------------------------------------------------------------------------------------
+// Playback and wiring
+// ---------------------------------------------------------------------------------------
+function go(i) {
+  if (!state.data) return;
+  const n = state.data.meta.n_frames;
+  state.frame = Math.min(Math.max(i, 0), n - 1);
+  $("slider").value = state.frame;
+  render();
+}
+function stop() { clearInterval(state.timer); state.timer = null; $("play").textContent = "▶ Play"; }
+function togglePlay() {
+  if (state.timer) return stop();
+  if (!state.data) return;
+  if (state.frame >= state.data.meta.n_frames - 1) go(0);
+  $("play").textContent = "❚❚ Pause";
+  state.timer = setInterval(() => {
+    if (state.frame >= state.data.meta.n_frames - 1) return stop();
+    go(state.frame + 1);
+  }, 650);
+}
+
+$("run").onclick = run;
+$("dice").onclick = () => { $("seed").value = Math.floor(Math.random() * 100000); run(); };
+$("prev").onclick = () => { stop(); go(state.frame - 1); };
+$("next").onclick = () => { stop(); go(state.frame + 1); };
+$("play").onclick = togglePlay;
+$("slider").oninput = (e) => { stop(); go(Number(e.target.value)); };
+$("severity").oninput = (e) => { $("severity-out").textContent = Number(e.target.value).toFixed(1); };
+document.querySelectorAll(".checks input").forEach((el) => el.addEventListener("change", render));
+document.querySelectorAll("#view button").forEach((btn) => btn.addEventListener("click", async () => {
+  state.view = btn.dataset.view;
+  document.querySelectorAll("#view button").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+  if (state.data && !state.imgs[state.view].length) await loadView(state.view);
+  render();
+}));
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input[type=number], select")) return;
+  if (e.key === "ArrowRight") { stop(); go(state.frame + 1); }
+  else if (e.key === "ArrowLeft") { stop(); go(state.frame - 1); }
+  else if (e.key === " " && !e.target.matches("button")) { e.preventDefault(); togglePlay(); }
+});
+window.addEventListener("resize", render);
+
+// Restore the scenario from the URL (shareable links), then run.
+const initial = new URLSearchParams(location.search);
+for (const [param, id] of [["seed", "seed"], ["kind", "kind"], ["severity", "severity"], ["n_frames", "nframes"], ["mode", "mode"]]) {
+  if (initial.has(param)) $(id).value = initial.get(param);
+}
+$("severity-out").textContent = Number($("severity").value).toFixed(1);
+run();
+</script>
+</body>
+</html>

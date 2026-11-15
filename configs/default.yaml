@@ -53,3 +53,38 @@ gate:
   min_mean_ap_gain: 0.05          # absolute AP@0.5 gain
   min_mean_psnr_gain_db: 1.0      # dB
   max_latency_ms_per_image: 250   # CPU, 128x128, restoration + detection
+
+# ----------------------------------------------------------------------------- tracking
+# Second layer of the product: follow the detected ships over time and forecast where they
+# will be. Everything below is SIMULATED (see scenario.py / trajectories.py).
+tracking:
+  scenario:
+    size: 256
+    dt_minutes: 2.0                 # one degraded frame every 2 minutes
+    n_frames: 16                    # frame 0 = sharp reference photo, frames 1..15 = degraded
+    n_ships: [2, 4]
+    speed_px_per_min: [0.8, 2.5]    # a ship crosses 2 to 5 pixels between two frames
+    maneuver_probability: 0.4       # share of ships that make a turn during the sequence
+    turn_rate_deg_per_min: [2.0, 6.0]
+    n_buoys: [0, 4]                 # static false alarms
+  detection:
+    score_threshold: 0.3
+  forecast_horizon_minutes: 10.0
+  kalman:
+    process_noise: 0.01             # q, px^2/min^3: how much the ships may deviate from a straight line
+    measurement_noise_px: 2.0       # std of a detected centre
+    gate_chi2: 13.8                 # Mahalanobis^2 association gate (99.9 %, 2 dof)
+    min_hits: 2                     # detections needed to confirm a track
+    max_misses: 4                   # frames a confirmed track may coast without detection
+    initial_speed_sigma: 2.0
+  evaluation:
+    seed: 5000                      # disjoint from every training seed
+    n_scenarios: 40                 # spread evenly over the four degradation kinds
+    severity: 1.0
+    match_distance_px: 8.0          # a track "covers" a ship if its centre is this close
+  # Quality floors enforced by `evaluate_tracking --gate` (set with a margin below the
+  # measured values: completeness 0.69, ratio 0.36, coverage 0.97 when they were chosen).
+  gate:
+    min_track_completeness: 0.55            # share of ship-frames covered by a confirmed track
+    max_kalman_to_stationary_error_ratio: 0.5   # the forecast must halve the error of "no motion"
+    min_ellipse_coverage: 0.90              # the 95 % ellipse must really contain ~95 % of truths

@@ -5,7 +5,7 @@ PYTHON ?= python
 CONFIG ?= configs/default.yaml
 IMAGE  ?= isr-restore:local
 
-.PHONY: help install lint format test train export evaluate gate pipeline serve docker-build docker-run clean
+.PHONY: help install lint format test train export evaluate gate evaluate-tracking gate-tracking pipeline serve viz docker-build docker-run clean
 
 help:  ## List the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -37,10 +37,20 @@ evaluate:  ## Benchmark the ONNX models, write reports/
 gate:  ## Benchmark AND fail (exit 1) if quality floors are not met
 	$(PYTHON) -m isr_restore.evaluate --config $(CONFIG) --gate
 
-pipeline: train export gate  ## Full ML pipeline: train -> export -> quality gate
+evaluate-tracking:  ## Benchmark tracking + 10-minute forecast on simulated sequences
+	$(PYTHON) -m isr_restore.evaluate_tracking --config $(CONFIG)
+
+gate-tracking:  ## Same benchmark, AND fail (exit 1) if the tracking floors are not met
+	$(PYTHON) -m isr_restore.evaluate_tracking --config $(CONFIG) --gate
+
+pipeline: train export gate gate-tracking  ## Full ML pipeline: train -> export -> both quality gates
 
 serve:  ## Run the API locally with auto-reload
 	uvicorn isr_restore.api:app --reload --port 8000
+
+viz:  ## Start the API and print the dashboard address (http://localhost:8000/viz)
+	@echo "Dashboard: http://localhost:8000/viz"
+	uvicorn isr_restore.api:app --port 8000
 
 docker-build:  ## Build the serving image
 	docker build -t $(IMAGE) .

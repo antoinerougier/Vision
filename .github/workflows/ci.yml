@@ -78,6 +78,8 @@ jobs:
       - run: pip install -e ".[serve]" matplotlib
       - name: Benchmark and enforce the gate
         run: python -m isr_restore.evaluate --config configs/default.yaml --gate
+      - name: Tracking benchmark and gate (simulated sequences, 10-minute forecast)
+        run: python -m isr_restore.evaluate_tracking --config configs/default.yaml --gate
       - name: Upload evaluation report
         if: always()
         uses: actions/upload-artifact@v4
@@ -118,6 +120,13 @@ jobs:
           jq -e '.detections | type == "array"' detect.json
           curl -fsS -F "file=@sample.png" http://localhost:8000/preprocess -o restored.png
           file restored.png | grep -q "PNG image data"
+      - name: Call the tracking endpoints and the dashboard
+        run: |
+          curl -fsS http://localhost:8000/viz | grep -q "ISR tracking dashboard"
+          curl -fsS "http://localhost:8000/sim/scenario?seed=3&n_frames=6" | tee scenario.json
+          jq -e '(.frames | length == 6) and (.meta.horizons | length == 5)' scenario.json
+          curl -fsS -o frame.png "http://localhost:8000/sim/frame/2?seed=3&n_frames=6"
+          file frame.png | grep -q "PNG image data"
       - name: Show container logs on failure
         if: failure()
         run: docker logs isr
