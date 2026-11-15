@@ -7,13 +7,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from isr_restore.data import (
+from isr.data import (
     PairedRestorationDataset,
     SyntheticDetectionDataset,
     YoloFolderDataset,
     load_yolo_folder,
 )
-from isr_restore.postprocess import decode
+from isr.postprocess import decode
 
 
 def test_synthetic_dataset_is_reproducible_and_seed_dependent() -> None:
@@ -45,7 +45,8 @@ def test_targets_stay_aligned_with_the_image_after_random_flips() -> None:
         item = dataset[i]
         heat = np.clip(item["heat"].numpy(), 1e-4, 1 - 1e-4)
         output = np.concatenate(
-            [np.log(heat / (1 - heat)), item["wh"].numpy(), item["offset"].numpy()], axis=0
+            [np.log(heat / (1 - heat)), item["wh"].numpy(), item["offset"].numpy()],
+            axis=0,
         )
         image = item["image"].numpy()[0]
         for x1, y1, x2, y2, _ in decode(output, score_threshold=0.9):

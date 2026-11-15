@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from isr_restore.degradations import KINDS, degrade
-from isr_restore.metrics import psnr
-from isr_restore.synthetic import render_scene
+from isr.degradations import KINDS, degrade
+from isr.metrics import psnr
+from isr.synthetic import render_scene
 
 
 @pytest.fixture()
@@ -34,7 +34,9 @@ def test_same_seed_gives_same_result(kind: str, clean_image: np.ndarray) -> None
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_degradation_actually_changes_the_image(kind: str, clean_image: np.ndarray) -> None:
+def test_degradation_actually_changes_the_image(
+    kind: str, clean_image: np.ndarray
+) -> None:
     out = degrade(clean_image, np.random.default_rng(5), kind=kind, severity=1.0)
     assert psnr(clean_image, out) < 25.0  # clearly different from the clean image
 
@@ -47,7 +49,9 @@ def test_higher_severity_is_worse(kind: str, clean_image: np.ndarray) -> None:
     assert psnr(clean_image, harsh) < psnr(clean_image, mild)
 
 
-def test_random_kind_and_severity_are_drawn_when_omitted(clean_image: np.ndarray) -> None:
+def test_random_kind_and_severity_are_drawn_when_omitted(
+    clean_image: np.ndarray,
+) -> None:
     rng = np.random.default_rng(0)
     outputs = [degrade(clean_image, rng) for _ in range(8)]
     # Eight independent draws should not all be identical.

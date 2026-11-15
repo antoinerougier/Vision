@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from conftest import REPO_ROOT
-from isr_restore.common import load_config
-from isr_restore.tracking import (
+from isr.common import load_config
+from isr.tracking import (
     CHI2_95_2DOF,
     MultiShipTracker,
     TrackerParams,
@@ -18,7 +18,9 @@ from isr_restore.tracking import (
 )
 
 
-def straight_line(n: int, start=(50.0, 50.0), velocity=(1.5, 0.5), dt=2.0, noise=0.0, seed=0):
+def straight_line(
+    n: int, start=(50.0, 50.0), velocity=(1.5, 0.5), dt=2.0, noise=0.0, seed=0
+):
     rng = np.random.default_rng(seed)
     t = np.arange(n) * dt
     xy = np.array(start) + np.outer(t, velocity)
@@ -28,7 +30,9 @@ def straight_line(n: int, start=(50.0, 50.0), velocity=(1.5, 0.5), dt=2.0, noise
 def run(tracker: MultiShipTracker, times, detections_per_frame, reference_first=True):
     for i, (t, dets) in enumerate(zip(times, detections_per_frame, strict=True)):
         tracker.update(
-            t, np.asarray(dets, dtype=float).reshape(-1, 2), reference=reference_first and i == 0
+            t,
+            np.asarray(dets, dtype=float).reshape(-1, 2),
+            reference=reference_first and i == 0,
         )
 
 
@@ -98,7 +102,9 @@ def test_confirmed_track_coasts_through_missed_detections_then_dies() -> None:
     params = TrackerParams(max_misses=3)
     tracker = MultiShipTracker(params)
     tracker.update(0.0, np.array([[50.0, 50.0]]), reference=True)
-    for k in range(1, 4):  # three missed frames: still alive, position keeps being predicted
+    for k in range(
+        1, 4
+    ):  # three missed frames: still alive, position keeps being predicted
         tracker.update(2.0 * k, np.zeros((0, 2)))
         assert len(tracker.tracks) == 1 and tracker.tracks[0].misses == k
     tracker.update(8.0, np.zeros((0, 2)))
@@ -120,8 +126,12 @@ def test_coasting_track_is_picked_up_again_with_the_same_id() -> None:
 
 
 def test_two_ships_keep_their_own_identity() -> None:
-    times, a = straight_line(10, start=(40.0, 60.0), velocity=(1.0, 0.0), noise=0.5, seed=5)
-    _, b = straight_line(10, start=(40.0, 100.0), velocity=(1.0, 0.0), noise=0.5, seed=6)
+    times, a = straight_line(
+        10, start=(40.0, 60.0), velocity=(1.0, 0.0), noise=0.5, seed=5
+    )
+    _, b = straight_line(
+        10, start=(40.0, 100.0), velocity=(1.0, 0.0), noise=0.5, seed=6
+    )
     tracker = MultiShipTracker()
     ids_a, ids_b = set(), set()
     for i, t in enumerate(times):
@@ -135,9 +145,13 @@ def test_gate_rejects_a_detection_far_from_the_prediction() -> None:
     tracker = MultiShipTracker()
     tracker.update(0.0, np.array([[50.0, 50.0]]), reference=True)
     tracker.update(2.0, np.array([[50.0, 50.0]]))
-    pairs = tracker.update(4.0, np.array([[200.0, 200.0]]))  # teleportation: not the same ship
+    pairs = tracker.update(
+        4.0, np.array([[200.0, 200.0]])
+    )  # teleportation: not the same ship
     assert pairs == []
-    assert len(tracker.tracks) == 2  # the old track coasts, the far detection starts a new one
+    assert (
+        len(tracker.tracks) == 2
+    )  # the old track coasts, the far detection starts a new one
 
 
 # ----------------------------------------------------------------------------- forecast

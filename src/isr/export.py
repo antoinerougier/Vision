@@ -1,7 +1,7 @@
 """Export the trained PyTorch checkpoints to ONNX and verify numerical parity.
 
 Usage:
-    python -m isr_restore.export --config configs/default.yaml
+    python -m isr.export --config configs/default.yaml
 
 Why ONNX? The production container only needs ONNX Runtime (a few tens of MB) instead of
 the full PyTorch stack (hundreds of MB to several GB), and the same .onnx files can later
@@ -26,7 +26,11 @@ from .models import DetectorNet, RestorationNet
 
 
 def export_model(
-    model: torch.nn.Module, path: Path, opset: int, tolerance: float, input_size: int = 128
+    model: torch.nn.Module,
+    path: Path,
+    opset: int,
+    tolerance: float,
+    input_size: int = 128,
 ) -> float:
     """Export one model with dynamic spatial axes and return the max abs parity error."""
     model.eval()
@@ -56,12 +60,16 @@ def export_model(
     (actual,) = session.run(None, {"image": probe.numpy()})
     error = float(np.max(np.abs(expected - actual)))
     if error > tolerance:
-        raise RuntimeError(f"ONNX parity check FAILED for {path.name}: max abs error {error:.2e}")
+        raise RuntimeError(
+            f"ONNX parity check FAILED for {path.name}: max abs error {error:.2e}"
+        )
     print(f"Exported {path} (max abs error vs PyTorch: {error:.2e})")
     return error
 
 
-def load_checkpoint(path: str | Path, model_cls: type[torch.nn.Module]) -> torch.nn.Module:
+def load_checkpoint(
+    path: str | Path, model_cls: type[torch.nn.Module]
+) -> torch.nn.Module:
     """Rebuild a model from a checkpoint written by the training scripts."""
     checkpoint = torch.load(path, map_location="cpu", weights_only=True)
     model = model_cls(checkpoint["base_channels"])

@@ -18,10 +18,10 @@ pytest.importorskip("torch")
 pytest.importorskip("onnxruntime")
 fastapi_testclient = pytest.importorskip("fastapi.testclient")
 
-from isr_restore import tracking_api  # noqa: E402
-from isr_restore.api import app, get_pipeline  # noqa: E402
-from isr_restore.degradations import KINDS  # noqa: E402
-from isr_restore.sequence import MODES  # noqa: E402
+from isr import tracking_api  # noqa: E402
+from isr.api import app, get_pipeline  # noqa: E402
+from isr.degradations import KINDS  # noqa: E402
+from isr.sequence import MODES  # noqa: E402
 
 
 @pytest.fixture()
@@ -120,14 +120,22 @@ def test_api_literals_match_the_library() -> None:
 @pytest.mark.parametrize("view", ["input", "processed", "clean"])
 def test_frame_images_are_png_of_the_scene_size(client, view: str) -> None:
     response = client.get("/sim/frame/2", params={**SMALL, "view": view})
-    assert response.status_code == 200 and response.headers["content-type"] == "image/png"
-    image = cv2.imdecode(np.frombuffer(response.content, np.uint8), cv2.IMREAD_UNCHANGED)
+    assert (
+        response.status_code == 200 and response.headers["content-type"] == "image/png"
+    )
+    image = cv2.imdecode(
+        np.frombuffer(response.content, np.uint8), cv2.IMREAD_UNCHANGED
+    )
     assert image.shape == (256, 256)
 
 
-def test_the_sensor_view_differs_from_the_true_scene_after_the_reference(client) -> None:
+def test_the_sensor_view_differs_from_the_true_scene_after_the_reference(
+    client,
+) -> None:
     def fetch(index: int, view: str) -> np.ndarray:
-        raw = client.get(f"/sim/frame/{index}", params={**SMALL, "kind": "fog", "view": view})
+        raw = client.get(
+            f"/sim/frame/{index}", params={**SMALL, "kind": "fog", "view": view}
+        )
         return cv2.imdecode(np.frombuffer(raw.content, np.uint8), cv2.IMREAD_UNCHANGED)
 
     assert np.array_equal(fetch(0, "input"), fetch(0, "clean"))  # sharp reference photo
@@ -161,7 +169,9 @@ def test_track_endpoint_returns_one_entry_per_image(client) -> None:
 
 def test_track_endpoint_forecast_horizons_follow_the_parameters(client) -> None:
     body = client.post(
-        "/track", files=sequence_files(6), params={"dt_minutes": 2, "horizon_minutes": 6}
+        "/track",
+        files=sequence_files(6),
+        params={"dt_minutes": 2, "horizon_minutes": 6},
     ).json()
     for frame in body["frames"]:
         for track in frame["tracks"]:
@@ -169,20 +179,32 @@ def test_track_endpoint_forecast_horizons_follow_the_parameters(client) -> None:
 
 
 def test_track_endpoint_validation(client) -> None:
-    assert client.post("/track", files=sequence_files(1)).status_code == 422  # need >= 2 images
+    assert (
+        client.post("/track", files=sequence_files(1)).status_code == 422
+    )  # need >= 2 images
     mixed = sequence_files(2, 64) + sequence_files(1, 32)
     assert client.post("/track", files=mixed).status_code == 422  # different sizes
     garbage = [("files", ("a.png", io.BytesIO(b"nope"), "image/png"))] * 2
     assert client.post("/track", files=garbage).status_code == 422
     assert (
-        client.post("/track", files=sequence_files(3), params={"dt_minutes": 0}).status_code == 422
+        client.post(
+            "/track", files=sequence_files(3), params={"dt_minutes": 0}
+        ).status_code
+        == 422
     )
     assert client.post("/track").status_code == 422  # no file at all
 
 
 def test_api_defaults_match_the_yaml_file() -> None:
-    from isr_restore.common import load_config
+    from isr.common import load_config
 
-    config = load_config(Path(__file__).resolve().parents[1] / "configs" / "default.yaml")
-    assert config["tracking"]["forecast_horizon_minutes"] == tracking_api.HORIZON_MINUTES
-    assert config["tracking"]["detection"]["score_threshold"] == tracking_api.SCORE_THRESHOLD
+    config = load_config(
+        Path(__file__).resolve().parents[1] / "configs" / "default.yaml"
+    )
+    assert (
+        config["tracking"]["forecast_horizon_minutes"] == tracking_api.HORIZON_MINUTES
+    )
+    assert (
+        config["tracking"]["detection"]["score_threshold"]
+        == tracking_api.SCORE_THRESHOLD
+    )

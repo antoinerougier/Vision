@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from isr_restore.synthetic import render_scene
+from isr.synthetic import render_scene
 
 
 def test_scene_shapes_and_range() -> None:

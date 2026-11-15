@@ -1,7 +1,7 @@
 """Train the blind restoration network on (degraded, clean) pairs.
 
 Usage:
-    python -m isr_restore.train_restoration --config configs/default.yaml
+    python -m isr.train_restoration --config configs/default.yaml
 
 The restorer is trained independently of any detector: its only objective is to
 reconstruct the clean image. This is what makes it a drop-in pre-processing layer,
@@ -26,7 +26,9 @@ from .models import RestorationNet, count_parameters
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/default.yaml")
-    parser.add_argument("--steps", type=int, default=None, help="override config (smoke tests)")
+    parser.add_argument(
+        "--steps", type=int, default=None, help="override config (smoke tests)"
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -37,7 +39,9 @@ def main() -> None:
     clean_bank = None
     if config["data"]["source"] == "yolo":
         # Use real, clean (or at least good-quality) images as the source of "ground truth".
-        clean_bank = [img for img, _ in load_yolo_folder(config["data"]["yolo_root"], "train")]
+        clean_bank = [
+            img for img, _ in load_yolo_folder(config["data"]["yolo_root"], "train")
+        ]
 
     dataset = PairedRestorationDataset(
         length=steps * cfg["batch_size"],
@@ -45,7 +49,9 @@ def main() -> None:
         seed=cfg["train_seed"],
         clean_images=clean_bank,
     )
-    loader = DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=False, drop_last=True)
+    loader = DataLoader(
+        dataset, batch_size=cfg["batch_size"], shuffle=False, drop_last=True
+    )
 
     model = RestorationNet(cfg["base_channels"])
     print(f"RestorationNet: {count_parameters(model):,} parameters")
@@ -77,7 +83,8 @@ def main() -> None:
     checkpoint = Path(cfg["checkpoint"])
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
-        {"state_dict": model.state_dict(), "base_channels": cfg["base_channels"]}, checkpoint
+        {"state_dict": model.state_dict(), "base_channels": cfg["base_channels"]},
+        checkpoint,
     )
     print(f"Saved {checkpoint}")
 

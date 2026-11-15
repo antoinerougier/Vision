@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 
 from conftest import REPO_ROOT
-from isr_restore.common import load_config
-from isr_restore.evaluate_tracking import (
+from isr.common import load_config
+from isr.evaluate_tracking import (
     _aggregate,
     _greedy_match,
     _oracle_detections,
@@ -19,8 +19,8 @@ from isr_restore.evaluate_tracking import (
     check_gate,
     run_tracking_benchmark,
 )
-from isr_restore.scenario import ScenarioConfig, build_scenario
-from isr_restore.sequence import (
+from isr.scenario import ScenarioConfig, build_scenario
+from isr.sequence import (
     MODES,
     TrackSnapshot,
     box_centers,
@@ -28,7 +28,7 @@ from isr_restore.sequence import (
     horizons_for,
     run_tracking,
 )
-from isr_restore.tracking import TrackerParams
+from isr.tracking import TrackerParams
 
 CFG = ScenarioConfig(size=128, n_frames=12, n_ships=(2, 3), speed_px_per_min=(0.8, 1.6))
 
@@ -92,7 +92,8 @@ def test_baselines_are_exact_on_a_noiseless_straight_line() -> None:
     snap = snapshots[6][0]
     t = scenario.times[6]
     exact = [
-        (t - 2.0 * k, 10.0 + 1.0 * (t - 2.0 * k), 20.0 + 0.5 * (t - 2.0 * k)) for k in (2, 1, 0)
+        (t - 2.0 * k, 10.0 + 1.0 * (t - 2.0 * k), 20.0 + 0.5 * (t - 2.0 * k))
+        for k in (2, 1, 0)
     ]
     snap = TrackSnapshot(**{**snap.__dict__, "last_measurements": exact})
     horizons = [2.0, 4.0, 6.0, 8.0, 10.0]
@@ -105,7 +106,9 @@ def test_baselines_are_exact_on_a_noiseless_straight_line() -> None:
 
 def test_oracle_detections_give_complete_accurate_tracks() -> None:
     scenario, detections, snapshots = oracle_run(3)
-    score = _score_scenario(scenario, detections, snapshots, horizons_for(2.0, 10.0), 8.0)
+    score = _score_scenario(
+        scenario, detections, snapshots, horizons_for(2.0, 10.0), 8.0
+    )
     metrics = _aggregate([score])
     assert metrics["tracking"]["completeness"] > 0.95
     assert metrics["tracking"]["false_tracks_per_frame"] == 0.0
@@ -147,7 +150,10 @@ def test_gate_logic() -> None:
     assert check_gate(report, gate) == []
     report["sources"]["restored"]["tracking"]["completeness"] = 0.3
     report["sources"]["restored"]["forecast"]["fde"]["kalman"] = 14.0
-    report["sources"]["restored"]["forecast"]["ellipse_coverage_by_horizon"] = [0.5, 0.4]
+    report["sources"]["restored"]["forecast"]["ellipse_coverage_by_horizon"] = [
+        0.5,
+        0.4,
+    ]
     assert len(check_gate(report, gate)) == 3
 
 
@@ -160,7 +166,9 @@ def test_yaml_gate_section_has_every_key_the_code_reads() -> None:
     } <= set(config["tracking"]["gate"])
 
 
-def test_full_benchmark_runs_end_to_end_with_untrained_models(tiny_model_dir: Path) -> None:
+def test_full_benchmark_runs_end_to_end_with_untrained_models(
+    tiny_model_dir: Path,
+) -> None:
     """Plumbing only (untrained networks): the report must have the documented structure."""
     config = load_config(REPO_ROOT / "configs" / "default.yaml")
     config["tracking"]["evaluation"]["n_scenarios"] = 2
