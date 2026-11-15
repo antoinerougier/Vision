@@ -1,0 +1,16 @@
+# Automatic weekly pull requests for outdated dependencies. Combined with the CI pipeline,
+# every upgrade is tested before it can be merged.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
