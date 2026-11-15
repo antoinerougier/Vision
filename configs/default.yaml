@@ -1,0 +1,55 @@
+# Single source of truth for hyper-parameters, paths and CI quality thresholds.
+# A run is fully described by (git commit + this file).
+
+seed: 42
+
+data:
+  # Source of clean images: "synthetic" (procedural scenes) or a YOLO-format folder.
+  source: synthetic          # synthetic | yolo
+  yolo_root: data/real       # used only when source == yolo
+  image_size: 128            # side of the square test / detector images, in pixels
+
+detector:
+  base_channels: 24
+  steps: 2500                # optimisation steps (not epochs: data is generated on the fly)
+  batch_size: 32
+  lr: 0.002
+  weight_decay: 0.0001
+  train_seed: 1              # sample seeds: train and test seeds must never overlap
+  checkpoint: models/detector.pt
+  # Baseline: the same detector trained WITH degradation augmentation (no restoration layer).
+  # It answers the key product question: is a restoration layer better than just retraining?
+  augmented_checkpoint: models/detector_augmented.pt
+  augmented_degrade_probability: 0.75
+
+restoration:
+  base_channels: 16
+  steps: 1800
+  batch_size: 16
+  patch_size: 96             # training crops are smaller than test images (faster, same stats)
+  lr: 0.002
+  weight_decay: 0.0
+  train_seed: 2
+  checkpoint: models/restoration.pt
+
+export:
+  onnx_dir: models
+  opset: 17
+  parity_tolerance: 0.0001   # max abs difference allowed between PyTorch and ONNX outputs
+
+evaluation:
+  test_seed: 1000            # disjoint from the training seeds
+  n_images: 200
+  severities: [0.5, 1.0, 1.3]   # 1.3 is OUTSIDE the training range (0.3 - 1.0): generalisation test
+  ap_score_threshold: 0.05    # low threshold for AP: the full precision/recall curve is needed
+  iou_threshold: 0.5
+  report_dir: reports
+
+# Quality gate enforced in CI (`python -m isr_restore.evaluate --gate`).
+# The restored images must beat the degraded ones by at least this much, averaged over
+# all degradation kinds at severity 1.0. A model that regresses below these floors
+# cannot be merged.
+gate:
+  min_mean_ap_gain: 0.05          # absolute AP@0.5 gain
+  min_mean_psnr_gain_db: 1.0      # dB
+  max_latency_ms_per_image: 250   # CPU, 128x128, restoration + detection
