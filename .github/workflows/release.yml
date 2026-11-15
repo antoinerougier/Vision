@@ -27,7 +27,7 @@ jobs:
       # Derives the image tags from the git tag: v1.2.3 -> 1.2.3, 1.2 and latest.
       - name: Compute image tags and labels
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
