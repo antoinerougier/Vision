@@ -39,19 +39,19 @@ jobs:
       - name: Train the detector (clean data only)
         run: |
           STEPS="${{ github.event.inputs.detector_steps }}"
-          python -m isr_restore.train_detector --config configs/default.yaml ${STEPS:+--steps $STEPS}
+          python -m isr.train_detector --config configs/default.yaml ${STEPS:+--steps $STEPS}
       - name: Train the restoration network
         run: |
           STEPS="${{ github.event.inputs.restoration_steps }}"
-          python -m isr_restore.train_restoration --config configs/default.yaml ${STEPS:+--steps $STEPS}
+          python -m isr.train_restoration --config configs/default.yaml ${STEPS:+--steps $STEPS}
 
       - name: Export to ONNX (with parity check)
-        run: python -m isr_restore.export --config configs/default.yaml
+        run: python -m isr.export --config configs/default.yaml
       - name: Benchmark and enforce the quality gate
-        run: python -m isr_restore.evaluate --config configs/default.yaml --gate
+        run: python -m isr.evaluate --config configs/default.yaml --gate
 
       - name: Tracking benchmark and gate
-        run: python -m isr_restore.evaluate_tracking --config configs/default.yaml --gate
+        run: python -m isr.evaluate_tracking --config configs/default.yaml --gate
 
       - name: Upload the new models and the report
         if: always()
