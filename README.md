@@ -1,4 +1,4 @@
-# isr-restore
+# Vision
 
 > An AI **pre-processing layer** for degraded ISR imagery (SAR speckle, low light, fog,
 > low-quality thermal). It sits *in front of* an existing detector and restores the signal
