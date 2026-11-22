@@ -5,7 +5,7 @@
 # receives the finished virtual environment, which keeps the final image small.
 
 # ----------------------------------------------------------------------------- builder
-FROM python:3.12-slim AS builder
+FROM python:3.15-slim AS builder
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -19,7 +19,7 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install ".[serve]"
 
 # ----------------------------------------------------------------------------- runtime
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 # Run as an unprivileged user: a compromised API process must not be root in the container.
 RUN useradd --create-home --uid 10001 appuser
